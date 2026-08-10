@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://spiral.dev/schemas/viz-v1.json",
+  "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/viz-v1.schema.json",
   "title": "Spiral visualizer contribution v1",
   "type": "object",
   "required": ["id", "name", "author", "description", "surfaces"],
@@ -73,13 +73,13 @@
         },
         "layout": { "$ref": "#/$defs/sceneLayout" },
         "visibleWhen": {
-          "$ref": "https://spiral.dev/schemas/presentation-common.json#/$defs/bindExpression"
+          "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/bindExpression"
         },
         "blend": { "type": "string" },
         "drive": {
           "type": "object",
           "additionalProperties": {
-            "$ref": "https://spiral.dev/schemas/presentation-common.json#/$defs/driveBinding"
+            "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/driveBinding"
           }
         },
         "opacity": { "type": "number", "minimum": 0, "maximum": 1 },
@@ -98,7 +98,7 @@
           "description": "Opaque bag passed to the layer's VizRenderer. Keys and ranges are renderer-defined."
         },
         "asset": {
-          "$ref": "https://spiral.dev/schemas/presentation-common.json#/$defs/assetRef"
+          "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/assetRef"
         },
         "loop": { "type": "boolean" },
         "children": {
