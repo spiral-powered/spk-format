@@ -5,7 +5,7 @@
 //! Contributions are discovered by scanning type folders (`themes/`, `skins/`, `visualizers/`, `renderers/`).
 
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Current pack.json wrapper shape version (`manifestVersion`).
 pub const PACK_MANIFEST_VERSION: u32 = 1;
@@ -40,11 +40,32 @@ pub struct PackManifest {
     pub version: String,
     pub name: String,
     pub description: String,
-    /// Optional path relative to the pack root. Prefer square 128×128 or 256×256.
+    /// Optional preview image path relative to the pack root.
+    /// Prefer a wide image around 1280×800 (16:10). When omitted, clients may
+    /// default to the first contribution's preview image.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
+    pub preview: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_app_version: Option<String>,
+}
+
+/// Convention filenames probed when a contribution/pack does not declare an
+/// explicit preview path (`preview.png`, then `preview.webp`).
+pub const PREVIEW_CONVENTION_FILES: &[&str] = &["preview.png", "preview.webp"];
+
+/// Resolve a preview image: explicit relative filename first, else the
+/// `preview.png`/`preview.webp` convention file, both relative to `dir`.
+pub fn resolve_preview_file(dir: &Path, explicit: Option<&str>) -> Option<PathBuf> {
+    if let Some(name) = explicit.map(str::trim).filter(|s| !s.is_empty()) {
+        let p = dir.join(name);
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    PREVIEW_CONVENTION_FILES
+        .iter()
+        .map(|n| dir.join(n))
+        .find(|p| p.is_file())
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -247,11 +268,11 @@ pub fn parse_pack_manifest_value(
             ));
         }
     }
-    if let Some(icon) = &pack.icon {
-        if icon.trim().is_empty() {
+    if let Some(preview) = &pack.preview {
+        if preview.trim().is_empty() {
             return Err(err(
                 "invalid_field",
-                "pack.json field \"icon\" must be a non-empty string when present",
+                "pack.json field \"preview\" must be a non-empty string when present",
             ));
         }
     }
@@ -445,11 +466,66 @@ mod tests {
         assert!(schema["properties"].get("contributions").is_none());
         assert!(schema["properties"].get("authorId").is_some());
         assert!(schema["properties"].get("author").is_none());
+        assert!(schema["properties"].get("preview").is_some());
+        assert!(schema["properties"].get("icon").is_none());
         assert!(schema["required"]
             .as_array()
             .unwrap()
             .iter()
             .any(|v| v == "authorId"));
+    }
+
+    #[test]
+    fn parses_optional_preview() {
+        let pack = parse_pack_manifest_json(
+            r#"{
+            "manifestVersion": 1,
+            "packId": "midnight-drive",
+            "authorId": "bryan",
+            "version": "1.0.0",
+            "name": "X",
+            "description": "",
+            "preview": "preview.png"
+        }"#,
+        )
+        .expect("preview ok");
+        assert_eq!(pack.preview.as_deref(), Some("preview.png"));
+    }
+
+    #[test]
+    fn rejects_empty_preview() {
+        let err = parse_pack_manifest_json(
+            r#"{
+            "manifestVersion": 1,
+            "packId": "midnight-drive",
+            "authorId": "bryan",
+            "version": "1.0.0",
+            "name": "X",
+            "description": "",
+            "preview": "   "
+        }"#,
+        )
+        .expect_err("empty preview");
+        assert_eq!(err.code, "invalid_field");
+        assert!(err.message.contains("preview"));
+    }
+
+    #[test]
+    fn resolve_preview_file_prefers_explicit() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("spk-format-preview-{nanos}"));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("custom.webp"), b"x").unwrap();
+        std::fs::write(dir.join("preview.png"), b"y").unwrap();
+        let resolved = resolve_preview_file(&dir, Some("custom.webp")).unwrap();
+        assert_eq!(resolved.file_name().unwrap(), "custom.webp");
+        let convention = resolve_preview_file(&dir, None).unwrap();
+        assert_eq!(convention.file_name().unwrap(), "preview.png");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

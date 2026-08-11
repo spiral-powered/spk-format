@@ -53,10 +53,10 @@
       "maxLength": 280,
       "description": "Short summary for lists/hero; use README.md for longer notes."
     },
-    "icon": {
+    "preview": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional pack icon path relative to the pack root (e.g. icon.png). Prefer a square PNG at 128×128 or 256×256 (256 for sharp 2×)."
+      "description": "Optional pack preview image path relative to the pack root (e.g. preview.png). Prefer a wide image around 1280×800 (16:10). When omitted, clients/registry default to the first contribution's preview image."
     },
     "minAppVersion": {
       "type": "string",
