@@ -21,6 +21,17 @@ fn pack_extract_temp_dir(archive_path: &Path) -> PathBuf {
     ))
 }
 
+/// Finder / macOS zip junk: `__MACOSX/` trees, AppleDouble `._*` files, `.DS_Store`.
+/// Skip on extract and when building archives so Compress-built `.spk`s install clean.
+fn is_apple_junk_path(path: &Path) -> bool {
+    path.components().any(|c| {
+        let Some(name) = c.as_os_str().to_str() else {
+            return false;
+        };
+        name == "__MACOSX" || name == ".DS_Store" || name.starts_with("._")
+    })
+}
+
 fn extract_zip_to(archive_path: &Path, dest: &Path) -> Result<(), String> {
     let file = File::open(archive_path).map_err(|e| format!("failed to open pack archive: {e}"))?;
     let mut archive = ZipArchive::new(file)
@@ -37,6 +48,10 @@ fn extract_zip_to(archive_path: &Path, dest: &Path) -> Result<(), String> {
                 entry.name()
             ));
         };
+
+        if is_apple_junk_path(&entry_path) {
+            continue;
+        }
 
         let outpath = dest.join(&entry_path);
 
@@ -77,6 +92,9 @@ pub fn find_pack_root(extract_dir: &Path) -> Result<PathBuf, String> {
     let mut dirs = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
+        if is_apple_junk_path(&path) {
+            continue;
+        }
         if path.is_dir() {
             dirs.push(path);
         } else if path.file_name().and_then(|n| n.to_str()) == Some(PACK_MANIFEST_FILENAME) {
@@ -158,6 +176,15 @@ pub fn write_pack_archive(source_dir: &Path, dest_spk: &Path) -> Result<(), Stri
 
     for entry in WalkDir::new(source_dir)
         .into_iter()
+        .filter_entry(|e| {
+            if e.path() == source_dir {
+                return true;
+            }
+            match e.path().strip_prefix(source_dir) {
+                Ok(rel) => !is_apple_junk_path(rel),
+                Err(_) => true,
+            }
+        })
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
@@ -279,6 +306,75 @@ mod tests {
 
         let err = extract_pack_archive(&spk).unwrap_err();
         assert!(err.contains("invalid path"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn extract_skips_macos_junk() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-spk-macosx-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let spk = dir.join("pack.spk");
+        write_test_spk(
+            &spk,
+            &[
+                (
+                    "pack.json",
+                    br#"{"manifestVersion":1,"packId":"t","authorId":"test","version":"1.0.0","name":"T","description":""}"#,
+                ),
+                ("skins/demo/skin.json", b"{}"),
+                ("__MACOSX/._pack.json", b"junk"),
+                ("__MACOSX/skins/._demo", b"junk"),
+                ("skins/demo/._skin.json", b"appledouble"),
+                (".DS_Store", b"store"),
+            ],
+        );
+
+        let extract = extract_pack_archive(&spk).unwrap();
+        let root = find_pack_root(&extract).unwrap();
+        assert!(root.join(PACK_MANIFEST_FILENAME).is_file());
+        assert!(!root.join("__MACOSX").exists());
+        assert!(!root.join(".DS_Store").exists());
+        assert!(!root.join("skins/demo/._skin.json").exists());
+        assert!(root.join("skins/demo/skin.json").is_file());
+        cleanup_pack_extract_dir(&extract);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn write_pack_archive_skips_macos_junk() {
+        let dir = std::env::temp_dir().join(format!(
+            "spiral-spk-write-macosx-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        let pack = dir.join("pack");
+        fs::create_dir_all(pack.join("skins/demo")).unwrap();
+        fs::create_dir_all(pack.join("__MACOSX/skins")).unwrap();
+        fs::write(
+            pack.join("pack.json"),
+            br#"{"manifestVersion":1,"packId":"t","authorId":"test","version":"1.0.0","name":"T","description":""}"#,
+        )
+        .unwrap();
+        fs::write(pack.join("skins/demo/skin.json"), b"{}").unwrap();
+        fs::write(pack.join("__MACOSX/._pack.json"), b"junk").unwrap();
+        fs::write(pack.join("skins/demo/._skin.json"), b"appledouble").unwrap();
+        fs::write(pack.join(".DS_Store"), b"store").unwrap();
+
+        let spk = dir.join("out.spk");
+        write_pack_archive(&pack, &spk).unwrap();
+
+        let extract = extract_pack_archive(&spk).unwrap();
+        let root = find_pack_root(&extract).unwrap();
+        assert!(!root.join("__MACOSX").exists());
+        assert!(!root.join(".DS_Store").exists());
+        assert!(!root.join("skins/demo/._skin.json").exists());
+        assert!(root.join("skins/demo/skin.json").is_file());
+        cleanup_pack_extract_dir(&extract);
         let _ = fs::remove_dir_all(&dir);
     }
 }
