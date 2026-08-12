@@ -36,7 +36,7 @@
     },
     "preview": {
       "type": "string",
-      "description": "Preview image path relative to pack root (e.g. preview.png)."
+      "description": "Optional preview image path relative to the contribution directory (e.g. preview.png). Declared explicitly — no filename convention."
     },
     "surfaces": {
       "type": "object",

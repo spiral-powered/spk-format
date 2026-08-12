@@ -121,6 +121,9 @@ pub struct SkinManifest {
     pub name: String,
     pub author: String,
     pub description: String,
+    /// Optional preview image path relative to the contribution directory.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preview: Option<String>,
     pub default_view: String,
     pub views: HashMap<String, SkinView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1722,6 +1725,18 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
             "defaultView \"{}\" is not defined in views",
             manifest.default_view
         ));
+    }
+    if let Some(preview) = &manifest.preview {
+        if preview.contains("..") || preview.starts_with('/') {
+            errors.push(format!(
+                "preview \"{preview}\" must be a relative path under the skin pack root"
+            ));
+        } else {
+            let path = pack_dir.join(preview);
+            if !path.is_file() {
+                errors.push(format!("preview not found: {}", path.display()));
+            }
+        }
     }
     if let Some(sheet) = &manifest.stylesheet {
         if sheet.contains("..") || sheet.starts_with('/') {

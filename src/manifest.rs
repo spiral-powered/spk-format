@@ -42,30 +42,21 @@ pub struct PackManifest {
     pub description: String,
     /// Optional preview image path relative to the pack root.
     /// Prefer a wide image around 1280×800 (16:10). When omitted, clients may
-    /// default to the first contribution's preview image.
+    /// default to the first contribution that declares a `preview` in its manifest.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_app_version: Option<String>,
 }
 
-/// Convention filenames probed when a contribution/pack does not declare an
-/// explicit preview path (`preview.png`, then `preview.webp`).
-pub const PREVIEW_CONVENTION_FILES: &[&str] = &["preview.png", "preview.webp"];
-
-/// Resolve a preview image: explicit relative filename first, else the
-/// `preview.png`/`preview.webp` convention file, both relative to `dir`.
+/// Resolve an explicitly declared preview image relative to `dir`.
+///
+/// Contribution and pack previews must be declared in the manifest — there is
+/// no filename convention fallback.
 pub fn resolve_preview_file(dir: &Path, explicit: Option<&str>) -> Option<PathBuf> {
-    if let Some(name) = explicit.map(str::trim).filter(|s| !s.is_empty()) {
-        let p = dir.join(name);
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-    PREVIEW_CONVENTION_FILES
-        .iter()
-        .map(|n| dir.join(n))
-        .find(|p| p.is_file())
+    let name = explicit.map(str::trim).filter(|s| !s.is_empty())?;
+    let p = dir.join(name);
+    p.is_file().then_some(p)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -511,7 +502,7 @@ mod tests {
     }
 
     #[test]
-    fn resolve_preview_file_prefers_explicit() {
+    fn resolve_preview_file_requires_explicit() {
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
@@ -523,8 +514,8 @@ mod tests {
         std::fs::write(dir.join("preview.png"), b"y").unwrap();
         let resolved = resolve_preview_file(&dir, Some("custom.webp")).unwrap();
         assert_eq!(resolved.file_name().unwrap(), "custom.webp");
-        let convention = resolve_preview_file(&dir, None).unwrap();
-        assert_eq!(convention.file_name().unwrap(), "preview.png");
+        assert!(resolve_preview_file(&dir, None).is_none());
+        assert!(resolve_preview_file(&dir, Some("missing.png")).is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

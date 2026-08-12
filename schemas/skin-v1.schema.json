@@ -41,6 +41,11 @@
       "maxLength": 280,
       "description": "Short summary for lists/cards; keep longer notes in the pack README."
     },
+    "preview": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional preview image path relative to the contribution directory (e.g. preview.png). Prefer ~320×200 (16:10). Declared explicitly — no filename convention."
+    },
     "defaultView": { "type": "string", "minLength": 1 },
     "views": {
       "type": "object",

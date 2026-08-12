@@ -280,7 +280,7 @@ fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), Stri
     if let Some(preview) = &manifest.preview {
         if preview.contains("..") || preview.starts_with('/') {
             errors.push(format!(
-                "preview \"{preview}\" must be a relative path under the pack root"
+                "preview \"{preview}\" must be a relative path under the contribution directory"
             ));
         } else {
             let path = pack_dir.join(preview);
