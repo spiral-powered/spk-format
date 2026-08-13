@@ -56,7 +56,8 @@
     "preview": {
       "type": "string",
       "minLength": 1,
-      "description": "Optional pack preview image path relative to the pack root (e.g. preview.png). Prefer a wide image around 1280×800 (16:10). When omitted, clients/registry default to the first contribution that declares a preview in its manifest."
+      "pattern": "^(?!.*\\.\\.)(?!/).+\\.(png|jpg|jpeg|webp|gif)$",
+      "description": "Optional preview image path relative to the contribution directory. Raster only: png, jpg, jpeg, webp, gif."
     },
     "minAppVersion": {
       "type": "string",

@@ -36,7 +36,9 @@
     },
     "preview": {
       "type": "string",
-      "description": "Optional preview image path relative to the contribution directory (e.g. preview.png). Declared explicitly — no filename convention."
+      "minLength": 1,
+      "pattern": "^(?!.*\\.\\.)(?!/).+\\.(png|jpg|jpeg|webp|gif)$",
+      "description": "Optional preview image path relative to the contribution directory. Raster only: png, jpg, jpeg, webp, gif."
     },
     "surfaces": {
       "type": "object",

@@ -122,6 +122,7 @@ pub struct SkinManifest {
     pub author: String,
     pub description: String,
     /// Optional preview image path relative to the contribution directory.
+    /// Raster only (`ALLOWED_PREVIEW_EXTENSIONS`); SVG is not permitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
     pub default_view: String,
@@ -988,11 +989,7 @@ pub fn validate_skin_contribution_at(manifest_path: &Path) -> Result<(), String>
     validate_skin_manifest(&manifest, pack_dir)
 }
 
-fn validate_condition(
-    condition: Option<&SkinCondition>,
-    field: &str,
-    errors: &mut Vec<String>,
-) {
+fn validate_condition(condition: Option<&SkinCondition>, field: &str, errors: &mut Vec<String>) {
     if let Some(cond) = condition {
         cond.validate_leaves(field, errors);
     }
@@ -1021,9 +1018,7 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
         if is_known_view_bind(p) || is_known_slideshow_bind(p) || is_known_scroll_strip_bind(p) {
             return;
         }
-        errors.push(format!(
-            "{field} references unknown bind path \"{p}\"."
-        ));
+        errors.push(format!("{field} references unknown bind path \"{p}\"."));
     }
 }
 
@@ -1112,7 +1107,12 @@ fn validate_interactive_assets(
     label: &str,
     errors: &mut Vec<String>,
 ) {
-    validate_skin_asset_file(&assets.default, pack_dir, &format!("{label}.default"), errors);
+    validate_skin_asset_file(
+        &assets.default,
+        pack_dir,
+        &format!("{label}.default"),
+        errors,
+    );
     if let Some(hover) = &assets.hover {
         validate_skin_asset_file(hover, pack_dir, &format!("{label}.hover"), errors);
     }
@@ -1176,13 +1176,19 @@ fn validate_bitmap_tiled_slider_presentation(
             ));
         }
     } else if track_tile_width.is_some() || track_tile_height.is_some() {
-        errors.push(format!("{kind} trackTileWidth/trackTileHeight require track"));
+        errors.push(format!(
+            "{kind} trackTileWidth/trackTileHeight require track"
+        ));
     }
     if track_width <= 0.0 || track_height <= 0.0 {
-        errors.push(format!("{kind} trackWidth and trackHeight must be positive"));
+        errors.push(format!(
+            "{kind} trackWidth and trackHeight must be positive"
+        ));
     }
     if thumb_width <= 0.0 || thumb_height <= 0.0 {
-        errors.push(format!("{kind} thumbWidth and thumbHeight must be positive"));
+        errors.push(format!(
+            "{kind} thumbWidth and thumbHeight must be positive"
+        ));
     }
     if border_size.is_some_and(|size| size < 0.0) {
         errors.push(format!("{kind} borderSize must be non-negative"));
@@ -1233,8 +1239,18 @@ fn validate_tiled_frame_presentation(
             validate_tiled_frame_asset(&assets.top_center, pack_dir, "assets.topCenter", errors);
             validate_tiled_frame_asset(&assets.top_right, pack_dir, "assets.topRight", errors);
             validate_tiled_frame_asset(&assets.top_stretch, pack_dir, "assets.topStretch", errors);
-            validate_tiled_frame_asset(&assets.left_stretch, pack_dir, "assets.leftStretch", errors);
-            validate_tiled_frame_asset(&assets.right_stretch, pack_dir, "assets.rightStretch", errors);
+            validate_tiled_frame_asset(
+                &assets.left_stretch,
+                pack_dir,
+                "assets.leftStretch",
+                errors,
+            );
+            validate_tiled_frame_asset(
+                &assets.right_stretch,
+                pack_dir,
+                "assets.rightStretch",
+                errors,
+            );
             validate_tiled_frame_asset(&assets.bottom_left, pack_dir, "assets.bottomLeft", errors);
             validate_tiled_frame_asset(
                 &assets.bottom_center,
@@ -1242,7 +1258,12 @@ fn validate_tiled_frame_presentation(
                 "assets.bottomCenter",
                 errors,
             );
-            validate_tiled_frame_asset(&assets.bottom_right, pack_dir, "assets.bottomRight", errors);
+            validate_tiled_frame_asset(
+                &assets.bottom_right,
+                pack_dir,
+                "assets.bottomRight",
+                errors,
+            );
             validate_tiled_frame_asset(
                 &assets.bottom_stretch,
                 pack_dir,
@@ -1262,11 +1283,7 @@ fn validate_tiled_frame_presentation(
     }
 }
 
-fn validate_presentation(
-    presentation: &Presentation,
-    pack_dir: &Path,
-    errors: &mut Vec<String>,
-) {
+fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &mut Vec<String>) {
     match presentation {
         Presentation::Bitmap {
             assets,
@@ -1290,10 +1307,7 @@ fn validate_presentation(
             if let Some(sheet) = stylesheet {
                 let path = pack_dir.join(sheet);
                 if !path.is_file() {
-                    errors.push(format!(
-                        "CSS stylesheet not found: {}",
-                        path.display()
-                    ));
+                    errors.push(format!("CSS stylesheet not found: {}", path.display()));
                 }
             }
         }
@@ -1448,7 +1462,9 @@ fn validate_presentation(
             }
             if let Some(inset) = content_inset {
                 if inset.w <= 0.0 || inset.h <= 0.0 {
-                    errors.push("framedPanel contentInset.w and contentInset.h must be positive".into());
+                    errors.push(
+                        "framedPanel contentInset.w and contentInset.h must be positive".into(),
+                    );
                 }
             }
         }
@@ -1727,15 +1743,8 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
         ));
     }
     if let Some(preview) = &manifest.preview {
-        if preview.contains("..") || preview.starts_with('/') {
-            errors.push(format!(
-                "preview \"{preview}\" must be a relative path under the skin pack root"
-            ));
-        } else {
-            let path = pack_dir.join(preview);
-            if !path.is_file() {
-                errors.push(format!("preview not found: {}", path.display()));
-            }
+        if let Err(message) = crate::validate_preview_file(pack_dir, preview) {
+            errors.push(message);
         }
     }
     if let Some(sheet) = &manifest.stylesheet {
@@ -1746,10 +1755,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
         } else {
             let path = pack_dir.join(sheet);
             if !path.is_file() {
-                errors.push(format!(
-                    "stylesheet not found: {}",
-                    path.display()
-                ));
+                errors.push(format!("stylesheet not found: {}", path.display()));
             }
         }
     }
@@ -1775,8 +1781,16 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
             }
         }
         if let Some(size) = &viz.size {
-            validate_visualizer_dimension(size.width.as_ref(), "visualizer.size.width", &mut errors);
-            validate_visualizer_dimension(size.height.as_ref(), "visualizer.size.height", &mut errors);
+            validate_visualizer_dimension(
+                size.width.as_ref(),
+                "visualizer.size.width",
+                &mut errors,
+            );
+            validate_visualizer_dimension(
+                size.height.as_ref(),
+                "visualizer.size.height",
+                &mut errors,
+            );
         }
     }
     if let Some(sounds) = &manifest.sound_effects {

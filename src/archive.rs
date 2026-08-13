@@ -34,8 +34,8 @@ fn is_apple_junk_path(path: &Path) -> bool {
 
 fn extract_zip_to(archive_path: &Path, dest: &Path) -> Result<(), String> {
     let file = File::open(archive_path).map_err(|e| format!("failed to open pack archive: {e}"))?;
-    let mut archive = ZipArchive::new(file)
-        .map_err(|e| format!("failed to read pack archive (bad zip): {e}"))?;
+    let mut archive =
+        ZipArchive::new(file).map_err(|e| format!("failed to read pack archive (bad zip): {e}"))?;
 
     for i in 0..archive.len() {
         let mut entry = archive
@@ -56,9 +56,8 @@ fn extract_zip_to(archive_path: &Path, dest: &Path) -> Result<(), String> {
         let outpath = dest.join(&entry_path);
 
         if entry.is_dir() || entry.name().ends_with('/') {
-            fs::create_dir_all(&outpath).map_err(|e| {
-                format!("failed to create directory {}: {e}", outpath.display())
-            })?;
+            fs::create_dir_all(&outpath)
+                .map_err(|e| format!("failed to create directory {}: {e}", outpath.display()))?;
             continue;
         }
 
@@ -87,8 +86,8 @@ pub fn find_pack_root(extract_dir: &Path) -> Result<PathBuf, String> {
         return Ok(extract_dir.to_path_buf());
     }
 
-    let entries = fs::read_dir(extract_dir)
-        .map_err(|e| format!("failed to read extracted pack: {e}"))?;
+    let entries =
+        fs::read_dir(extract_dir).map_err(|e| format!("failed to read extracted pack: {e}"))?;
     let mut dirs = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -137,9 +136,8 @@ pub fn extract_pack_archive(archive_path: &Path) -> Result<PathBuf, String> {
 
     let extract_dir = pack_extract_temp_dir(archive_path);
     if extract_dir.exists() {
-        fs::remove_dir_all(&extract_dir).map_err(|e| {
-            format!("failed to clear previous pack extract directory: {e}")
-        })?;
+        fs::remove_dir_all(&extract_dir)
+            .map_err(|e| format!("failed to clear previous pack extract directory: {e}"))?;
     }
     fs::create_dir_all(&extract_dir)
         .map_err(|e| format!("failed to create pack extract directory: {e}"))?;
@@ -216,7 +214,8 @@ pub fn write_pack_archive(source_dir: &Path, dest_spk: &Path) -> Result<(), Stri
 
         zip.start_file(&name, options)
             .map_err(|e| format!("failed to start pack archive file {name}: {e}"))?;
-        let bytes = fs::read(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
+        let bytes =
+            fs::read(path).map_err(|e| format!("failed to read {}: {e}", path.display()))?;
         zip.write_all(&bytes)
             .map_err(|e| format!("failed to write pack archive file {name}: {e}"))?;
     }
@@ -244,10 +243,7 @@ mod tests {
 
     #[test]
     fn finds_pack_root_at_archive_root() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-spk-root-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-spk-root-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -269,10 +265,7 @@ mod tests {
 
     #[test]
     fn finds_pack_root_nested_single_folder() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-spk-nested-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-spk-nested-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -294,10 +287,7 @@ mod tests {
 
     #[test]
     fn rejects_zip_slip() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-spk-slip-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-spk-slip-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -311,10 +301,7 @@ mod tests {
 
     #[test]
     fn extract_skips_macos_junk() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-spk-macosx-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("spiral-spk-macosx-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
 
@@ -347,10 +334,8 @@ mod tests {
 
     #[test]
     fn write_pack_archive_skips_macos_junk() {
-        let dir = std::env::temp_dir().join(format!(
-            "spiral-spk-write-macosx-{}",
-            std::process::id()
-        ));
+        let dir =
+            std::env::temp_dir().join(format!("spiral-spk-write-macosx-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let pack = dir.join("pack");
         fs::create_dir_all(pack.join("skins/demo")).unwrap();
