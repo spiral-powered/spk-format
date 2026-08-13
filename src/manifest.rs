@@ -22,6 +22,12 @@ pub const PACK_README_FILENAME: &str = "README.md";
 /// Max README.md size accepted for read/write (bytes).
 pub const PACK_README_MAX_BYTES: u64 = 256 * 1024;
 
+/// Optional release history at the pack root (rendered in Studio Changelog).
+pub const PACK_CHANGELOG_FILENAME: &str = "CHANGELOG.md";
+
+/// Max CHANGELOG.md size accepted for read/write (bytes).
+pub const PACK_CHANGELOG_MAX_BYTES: u64 = 256 * 1024;
+
 /// Fixed type-folder → contribution type mapping used by the scanner.
 pub const CONTRIBUTION_TYPE_FOLDERS: &[(&str, &str, &str)] = &[
     // (folder name, contribution type, manifest filename)
