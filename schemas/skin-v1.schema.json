@@ -270,29 +270,33 @@
     },
     "layoutBounds": {
       "type": "object",
-      "required": ["y", "w", "h"],
       "additionalProperties": false,
+      "description": "Fixed or stretch bounds against the current layout context (CSS edge insets). Default: x,y,w,h. Pin/stretch: omit w when x+right; omit h when y+bottom; omit x when right+w; omit y when bottom+h.",
       "properties": {
         "x": { "type": "number" },
         "right": {
           "type": "number",
-          "description": "WMP right anchor: inset of the node's left edge from the stage right (view.width - N)."
+          "description": "Inset of the node's right edge from the context right (CSS). With x and no w: horizontal stretch. With w and no x: right-anchored fixed width."
         },
         "y": { "type": "number" },
+        "bottom": {
+          "type": "number",
+          "description": "Inset of the node's bottom edge from the context bottom (CSS). With y and no h: vertical stretch. With h and no y: bottom-anchored fixed height."
+        },
         "w": { "type": "number", "minimum": 1 },
         "h": { "type": "number", "minimum": 1 },
         "zIndex": { "type": "integer" }
-      },
-      "anyOf": [{ "required": ["x"] }, { "required": ["right"] }]
+      }
     },
     "layoutNode": {
       "oneOf": [
         { "$ref": "#/$defs/containerNode" },
         { "$ref": "#/$defs/subviewNode" },
         { "$ref": "#/$defs/decorationNode" },
-        { "$ref": "#/$defs/hitAreaNode" },
         { "$ref": "#/$defs/tiledFrameNode" },
         { "$ref": "#/$defs/controlNode" },
+        { "$ref": "#/$defs/textNode" },
+        { "$ref": "#/$defs/playlistNode" },
         { "$ref": "#/$defs/buttonGroupNode" },
         { "$ref": "#/$defs/slideshowNode" },
         { "$ref": "#/$defs/scrollStripNode" },
@@ -338,6 +342,39 @@
         }
       ]
     },
+    "nodeStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Closed, optional panel-writable paint. Numbers are px. Omitting a field cedes it to CSS.",
+      "properties": {
+        "color": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSS color (e.g. #rrggbb, rgba(...))."
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Font size in px."
+        },
+        "fontWeight": {
+          "description": "normal, bold, or numeric 100–900.",
+          "oneOf": [
+            { "type": "string", "enum": ["normal", "bold"] },
+            { "type": "integer", "minimum": 100, "maximum": 900 }
+          ]
+        },
+        "textAlign": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        },
+        "backgroundColor": {
+          "type": "string",
+          "minLength": 1,
+          "description": "CSS color for the node fill."
+        }
+      }
+    },
     "nodeBase": {
       "type": "object",
       "properties": {
@@ -347,6 +384,7 @@
           "minLength": 1,
           "description": "Optional CSS class on the node root. Prefer id for one-off targeting."
         },
+        "style": { "$ref": "#/$defs/nodeStyle" },
         "bounds": { "$ref": "#/$defs/layoutBounds" },
         "boundsWhen": {
           "type": "object",
@@ -363,6 +401,7 @@
         "x": { "type": "number" },
         "right": { "type": "number" },
         "y": { "type": "number" },
+        "bottom": { "type": "number" },
         "w": { "type": "number", "minimum": 1 },
         "h": { "type": "number", "minimum": 1 },
         "zIndex": { "type": "integer" }
@@ -378,6 +417,7 @@
           "properties": {
             "id": { "type": "string", "minLength": 1 },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": {
               "type": "string",
               "enum": ["stack", "row", "column", "overlay", "canvas"],
@@ -415,6 +455,7 @@
           "properties": {
             "id": { "type": "string", "minLength": 1 },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "subview" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
@@ -449,6 +490,7 @@
           "properties": {
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "decoration" },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -466,29 +508,6 @@
         }
       ]
     },
-    "hitAreaNode": {
-      "description": "Solid canvas hit target without a Tauri drag attribute. Use on click-through skins where bounds must block OS pass-through but stage dragInference handles window moves.",
-      "allOf": [
-        { "$ref": "#/$defs/nodeBase" },
-        {
-          "type": "object",
-          "required": ["type", "bounds"],
-          "additionalProperties": false,
-          "properties": {
-            "id": { "type": "string" },
-            "className": { "type": "string", "minLength": 1 },
-            "type": { "const": "hitArea" },
-            "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
-            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
-          }
-        }
-      ]
-    },
     "tiledFrameNode": {
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
@@ -499,6 +518,7 @@
           "properties": {
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "tiledFrame" },
             "presentation": { "$ref": "#/$defs/tiledFramePresentation" },
             "children": {
@@ -522,32 +542,13 @@
         "artHeight": { "type": "number", "minimum": 1 }
       }
     },
-    "stretchLayoutBounds": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "x": { "type": "number" },
-        "right": {
-          "type": "number",
-          "description": "Inset from stage right; with x and no w, enables horizontal stretch."
-        },
-        "y": { "type": "number" },
-        "bottom": {
-          "type": "number",
-          "description": "Inset from stage bottom; with y and no h, enables vertical stretch."
-        },
-        "w": { "type": "number", "minimum": 1 },
-        "h": { "type": "number", "minimum": 1 },
-        "zIndex": { "type": "integer" }
-      }
-    },
     "tiledFrameTileDef": {
       "type": "object",
       "required": ["asset", "bounds"],
       "additionalProperties": false,
       "properties": {
         "asset": { "$ref": "#/$defs/skinAssetFile" },
-        "bounds": { "$ref": "#/$defs/stretchLayoutBounds" },
+        "bounds": { "$ref": "#/$defs/layoutBounds" },
         "repeat": { "type": "string", "enum": ["horizontal", "vertical"] },
         "tileUnit": { "$ref": "#/$defs/tiledFrameTileSize" },
         "artHeight": { "type": "number", "minimum": 1 },
@@ -669,19 +670,17 @@
           "properties": {
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": {
               "type": "string",
               "enum": [
                 "button",
                 "seekbar",
-                "text",
                 "artwork",
                 "transport",
                 "visualizer",
                 "volume",
-                "queue",
-                "time",
-                "playlist"
+                "time"
               ]
             },
             "action": { "type": "string" },
@@ -689,12 +688,6 @@
             "viewId": { "type": "string", "minLength": 1 },
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
-            "value": { "type": "string" },
-            "overflow": {
-              "type": "string",
-              "enum": ["visible", "clip", "scroll", "scroll-bounce"],
-              "description": "Runtime overflow behavior. Typography belongs in skin CSS."
-            },
             "enabledWhen": {
               "$ref": "#/$defs/skinCondition",
               "description": "When truthy, the control is interactive."
@@ -734,6 +727,78 @@
         }
       ]
     },
+    "textNode": {
+      "description": "Dynamic or static label. Omit presentation — there is no drawing backend to pick. Typography lives in style.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "text" },
+            "bind": { "type": "string" },
+            "value": { "type": "string" },
+            "overflow": {
+              "type": "string",
+              "enum": ["visible", "clip", "scroll", "scroll-bounce"],
+              "description": "Runtime overflow behavior. Typography lives in style."
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
+    "playlistNode": {
+      "description": "Track list with optional source dropdown and duration column. Feature flags live on the node; there is no presentation.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "playlist" },
+            "showDropdown": {
+              "type": "boolean",
+              "description": "Show source dropdown (All tracks, Up Next, user playlists). Default true."
+            },
+            "showDuration": {
+              "type": "boolean",
+              "description": "Show track duration column. Default true."
+            },
+            "showArtwork": {
+              "type": "boolean",
+              "description": "Show album artwork on each track row. Default false."
+            },
+            "defaultSource": {
+              "type": "string",
+              "enum": ["all", "upNext"],
+              "description": "Initial playlist source. Default all. Runtime source still follows playlist.setSource after mount."
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" }
+          }
+        }
+      ]
+    },
     "buttonGroupNode": {
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
@@ -744,6 +809,7 @@
           "properties": {
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "buttonGroup" },
             "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -763,6 +829,7 @@
           "properties": {
             "id": { "type": "string", "minLength": 1 },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "slideshow" },
             "presentation": { "$ref": "#/$defs/slideshowPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -813,6 +880,7 @@
           "properties": {
             "id": { "type": "string", "minLength": 1 },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "scrollStrip" },
             "presentation": { "$ref": "#/$defs/scrollStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -881,6 +949,7 @@
           "properties": {
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "eqBand" },
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
             "action": { "type": "string" },
@@ -921,6 +990,7 @@
           "properties": {
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "balance" },
             "action": { "type": "string" },
             "panelId": { "type": "string", "minLength": 1 },
@@ -961,8 +1031,7 @@
         { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" },
         { "$ref": "#/$defs/bitmapSeekbarPresentation" },
         { "$ref": "#/$defs/digitStripPresentation" },
-        { "$ref": "#/$defs/framedPanelPresentation" },
-        { "$ref": "#/$defs/compactPlaylistPresentation" }
+        { "$ref": "#/$defs/framedPanelPresentation" }
       ]
     },
     "bitmapPresentation": {
@@ -1081,9 +1150,29 @@
       "type": "object",
       "required": ["kind"],
       "additionalProperties": false,
+      "description": "App chrome controls. For button nodes: optional icon/text/variant. Other node types ignore those fields.",
       "properties": {
         "kind": { "const": "primitive" },
-        "variant": { "type": "string" }
+        "icon": {
+          "description": "Button only. Library id (camelCase of Icon* export without Icon prefix, e.g. setList) or pack-relative asset under assets/.",
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-zA-Z0-9]*$",
+              "description": "Spiral icon library id."
+            },
+            { "$ref": "#/$defs/skinAssetFile" }
+          ]
+        },
+        "text": {
+          "type": "string",
+          "description": "Button only. Visible label (author content)."
+        },
+        "variant": {
+          "type": "string",
+          "enum": ["primary", "secondary", "ghost", "danger"],
+          "description": "Button only. App Button variant; default ghost."
+        }
       }
     },
     "cssPresentation": {
@@ -1175,10 +1264,7 @@
       "type": "object",
       "required": [
         "kind",
-        "track",
         "thumb",
-        "trackTileWidth",
-        "trackTileHeight",
         "trackWidth",
         "trackHeight",
         "thumbWidth",
@@ -1187,17 +1273,20 @@
       "additionalProperties": false,
       "properties": {
         "kind": { "const": "bitmapHorizontalSlider" },
-        "track": { "$ref": "#/$defs/skinAssetFile" },
+        "track": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "Omitted for thumb-only sliders (groove baked into panel background)."
+        },
         "thumb": { "$ref": "#/$defs/skinAssetFile" },
         "trackTileWidth": {
           "type": "number",
           "minimum": 1,
-          "description": "Source tile width in px; when less than trackWidth, 3-slice tiling repeats the middle"
+          "description": "Source tile width in px; required when track is set. When less than trackWidth, 3-slice tiling repeats the middle."
         },
         "trackTileHeight": {
           "type": "number",
           "minimum": 1,
-          "description": "Source tile height in px"
+          "description": "Source tile height in px; required when track is set."
         },
         "trackWidth": { "type": "number", "minimum": 1 },
         "trackHeight": { "type": "number", "minimum": 1 },
@@ -1275,22 +1364,6 @@
         "mask": { "$ref": "#/$defs/skinAssetFile" },
         "frame": { "$ref": "#/$defs/skinAssetFile" },
         "contentInset": { "$ref": "#/$defs/framedPanelInset" }
-      }
-    },
-    "compactPlaylistPresentation": {
-      "type": "object",
-      "required": ["kind"],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "const": "compact" },
-        "showDropdown": {
-          "type": "boolean",
-          "description": "Show source dropdown (All tracks, Up Next, user playlists). Default true."
-        },
-        "showDuration": {
-          "type": "boolean",
-          "description": "Show track duration column. Default true."
-        }
       }
     },
     "framedPanelInset": {

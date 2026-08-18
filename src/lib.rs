@@ -16,14 +16,13 @@ pub use skin::{
 // Re-export skin schema types used by spiral-desktop's runtime loader.
 pub use skin::{
     ButtonGroupElement, ButtonGroupFields, ContainerFields, ControlFields, DecorationFields,
-    DigitStripSlot, EqBandFields, FramedPanelInset, HitAreaFields, InteractiveAssets, LayoutBounds,
-    LayoutBoundsOverride, LayoutNode, Presentation, ScrollStripFields,
+    DigitStripSlot, EqBandFields, FramedPanelInset, InteractiveAssets, LayoutBounds,
+    LayoutBoundsOverride, LayoutNode, NodeStyle, PlaylistFields, Presentation, ScrollStripFields,
     ScrollStripItem, ScrollStripPresentation, ScrollStripSlide, ScrollStripSlideItem,
     SkinCanvasSpec, SkinCondition, SkinPanel, SkinPanelMotion, SkinPanelWindowOverride, SkinView,
     SkinViewActivateEffect, SkinViewStateSpec, SkinViewStateTransition, SkinVisualizer,
-    SlideshowDeck, SlideshowFields,
-    SlideshowPresentation, StretchLayoutBounds, SubviewFields, TextControlFields, TiledFrameAssets,
-    TiledFrameContentInset, TiledFrameExplicitPresentation, TiledFrameFields,
+    SlideshowDeck, SlideshowFields, SlideshowPresentation, SubviewFields, TextControlFields,
+    TiledFrameAssets, TiledFrameContentInset, TiledFrameExplicitPresentation, TiledFrameFields,
     TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef, TiledFrameTileSize,
     TiledFrameTileSizes, WindowChrome,
 };
