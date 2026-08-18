@@ -211,11 +211,7 @@ pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub presentation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub layout_mode: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_inference: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub canvas: Option<SkinCanvasSpec>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub panels: Option<HashMap<String, SkinPanel>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -224,7 +220,7 @@ pub struct SkinView {
     pub on_activate: Option<Vec<SkinViewActivateEffect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window: Option<WindowChrome>,
-    pub layout: LayoutNode,
+    pub layout: ViewLayout,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,14 +242,32 @@ pub struct SkinViewStateSpec {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ViewLayout {
+    #[serde(rename = "canvas")]
+    Canvas(CanvasFields),
+    #[serde(rename = "row")]
+    Row(ContainerFields),
+    #[serde(rename = "column")]
+    Column(ContainerFields),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SkinCanvasSpec {
+pub struct CanvasFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<NodeStyle>,
     pub width: u32,
     pub height: u32,
+    pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width_when: Option<HashMap<String, u32>>,
+    pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height_when: Option<HashMap<String, u32>>,
+    pub drag_region: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -327,8 +341,6 @@ pub enum LayoutNode {
     Column(ContainerFields),
     #[serde(rename = "overlay")]
     Overlay(ContainerFields),
-    #[serde(rename = "canvas")]
-    Canvas(ContainerFields),
     #[serde(rename = "subview")]
     Subview(SubviewFields),
     #[serde(rename = "decoration")]
@@ -1574,13 +1586,19 @@ fn validate_node_style(style: Option<&NodeStyle>, field: &str, errors: &mut Vec<
     }
 }
 
+fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
+    match layout {
+        ViewLayout::Canvas(f) => f.style.as_ref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.style.as_ref(),
+    }
+}
+
 fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
     match node {
         LayoutNode::Stack(f)
         | LayoutNode::Row(f)
         | LayoutNode::Column(f)
-        | LayoutNode::Overlay(f)
-        | LayoutNode::Canvas(f) => f.style.as_ref(),
+        | LayoutNode::Overlay(f) => f.style.as_ref(),
         LayoutNode::Subview(f) => f.style.as_ref(),
         LayoutNode::Decoration(f) => f.style.as_ref(),
         LayoutNode::Button(f)
@@ -1631,12 +1649,31 @@ fn validate_bounds(bounds: &LayoutBounds, field: &str, errors: &mut Vec<String>)
     }
 }
 
-fn validate_layout_node(
-    node: &LayoutNode,
-    pack_dir: &Path,
-    errors: &mut Vec<String>,
-    is_root: bool,
-) {
+fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<String>) {
+    validate_node_style(view_layout_style(layout), "style", errors);
+    match layout {
+        ViewLayout::Canvas(f) => {
+            if f.width == 0 || f.height == 0 {
+                errors.push("canvas root width and height must be at least 1".into());
+            }
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            for child in &f.children {
+                validate_layout_node(child, pack_dir, errors);
+            }
+        }
+        ViewLayout::Row(f) | ViewLayout::Column(f) => {
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            if let Some(bounds) = &f.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+            for child in &f.children {
+                validate_layout_node(child, pack_dir, errors);
+            }
+        }
+    }
+}
+
+fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<String>) {
     validate_node_style(layout_node_style(node), "style", errors);
     match node {
         LayoutNode::Stack(f)
@@ -1648,34 +1685,14 @@ fn validate_layout_node(
                 validate_bounds(bounds, "bounds", errors);
             }
             for child in &f.children {
-                validate_layout_node(child, pack_dir, errors, false);
-            }
-        }
-        LayoutNode::Canvas(f) => {
-            if !is_root {
-                let label = f.id.as_deref().unwrap_or("(anonymous)");
-                errors.push(format!(
-                    "nested canvas \"{label}\" is invalid; use subview for nested groups (canvas is view root only)"
-                ));
-            }
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
-            if let Some(bounds) = &f.bounds {
-                validate_bounds(bounds, "bounds", errors);
-            }
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors, false);
+                validate_layout_node(child, pack_dir, errors);
             }
         }
         LayoutNode::Subview(f) => {
-            if is_root {
-                errors.push(
-                    "subview cannot be a view layout root; use canvas (or tiledFrame)".into(),
-                );
-            }
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             validate_bounds(&f.bounds, "bounds", errors);
             for child in &f.children {
-                validate_layout_node(child, pack_dir, errors, false);
+                validate_layout_node(child, pack_dir, errors);
             }
         }
         LayoutNode::Decoration(f) => {
@@ -1763,7 +1780,7 @@ fn validate_layout_node(
             }
             validate_tiled_frame_presentation(&f.presentation, pack_dir, errors);
             for child in &f.children {
-                validate_layout_node(child, pack_dir, errors, false);
+                validate_layout_node(child, pack_dir, errors);
             }
         }
         LayoutNode::Slideshow(f) => {
@@ -1886,21 +1903,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 ));
             }
         }
-        if let Some(mode) = &view.layout_mode {
-            if mode != "flow" && mode != "canvas" {
-                errors.push(format!(
-                    "views.{view_name}.layoutMode \"{mode}\" must be flow or canvas"
-                ));
-            }
-            if mode == "canvas" {
-                if view.canvas.is_none() {
-                    errors.push(format!(
-                        "views.{view_name} with layoutMode canvas requires a canvas {{ width, height }}"
-                    ));
-                }
-            }
-        }
-        validate_layout_node(&view.layout, pack_dir, &mut errors, true);
+        validate_view_layout(&view.layout, pack_dir, &mut errors);
     }
 
     let primary_count = manifest
@@ -1947,7 +1950,7 @@ mod tests {
     fn rejects_missing_skin_name() {
         let (dir, path) = write_skin_json(
             "bad-name",
-            r#"{"name":"","author":"a","description":"","defaultView":"main","views":{"main":{"layout":{"type":"canvas","children":[]}}}}"#,
+            r#"{"name":"","author":"a","description":"","defaultView":"main","views":{"main":{"layout":{"type":"canvas","width":100,"height":80,"children":[]}}}}"#,
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(err.contains("name") || err.contains("layout") || !err.is_empty());
@@ -1966,7 +1969,7 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
-                    "type":"overlay",
+                    "type":"column",
                     "children":[
                       {
                         "type":"playlist",
@@ -1994,8 +1997,11 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
-                    "type":"playlist",
-                    "defaultSource":"library"
+                    "type":"column",
+                    "children":[{
+                      "type":"playlist",
+                      "defaultSource":"library"
+                    }]
                   }
                 }
               }
@@ -2043,9 +2049,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"button",
                     "action":"skin.openPicker",
                     "presentation":{"kind":"primitive","icon":"setList","variant":"ghost"}
+                    }]
                   }
                 }
               }
@@ -2067,9 +2076,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"button",
                     "action":"eq.reset",
                     "presentation":{"kind":"primitive","text":"reset","variant":"plain"}
+                    }]
                   }
                 }
               }
@@ -2091,9 +2103,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"button",
                     "action":"skin.openPicker",
                     "presentation":{"kind":"primitive","icon":"icons/missing.png"}
+                    }]
                   }
                 }
               }
@@ -2116,9 +2131,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"button",
                     "action":"skin.openPicker",
                     "presentation":{"kind":"primitive","variant":"playlist"}
+                    }]
                   }
                 }
               }
@@ -2141,9 +2159,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"button",
                     "action":"skin.openPicker",
                     "presentation":{"kind":"primitive","icon":"Set-List"}
+                    }]
                   }
                 }
               }
@@ -2166,9 +2187,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"text",
                     "bind":"track.title",
                     "style":{"color":"white","fontSize":8,"textAlign":"center"}
+                    }]
                   }
                 }
               }
@@ -2190,8 +2214,11 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"text",
                     "bind":"track.title"
+                    }]
                   }
                 }
               }
@@ -2213,9 +2240,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"text",
                     "bind":"track.title",
                     "presentation":{"kind":"primitive"}
+                    }]
                   }
                 }
               }
@@ -2241,9 +2271,12 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"text",
                     "bind":"track.title",
                     "style":{"color":"white","letterSpacing":1}
+                    }]
                   }
                 }
               }
@@ -2269,8 +2302,11 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"text",
                     "style":{"fontSize":0}
+                    }]
                   }
                 }
               }
@@ -2293,8 +2329,11 @@ mod tests {
               "views":{
                 "main":{
                   "layout":{
+                    "type":"column",
+                    "children":[{
                     "type":"text",
                     "style":{"textAlign":"justify"}
+                    }]
                   }
                 }
               }
@@ -2318,6 +2357,8 @@ mod tests {
                 "main":{
                   "layout":{
                     "type":"canvas",
+                    "width":100,
+                    "height":80,
                     "children":[{
                       "type":"playlist",
                       "id":"pl-list",
@@ -2346,6 +2387,8 @@ mod tests {
                 "main":{
                   "layout":{
                     "type":"canvas",
+                    "width":100,
+                    "height":80,
                     "children":[{
                       "type":"playlist",
                       "playingRowStyle":{"color":"#fff","letterSpacing":1}
@@ -2376,6 +2419,8 @@ mod tests {
                 "main":{
                   "layout":{
                     "type":"canvas",
+                    "width":100,
+                    "height":80,
                     "children":[{
                       "type":"playlist",
                       "id":"pl-view",
@@ -2404,6 +2449,8 @@ mod tests {
                 "main":{
                   "layout":{
                     "type":"canvas",
+                    "width":100,
+                    "height":80,
                     "children":[{
                       "type":"playlist",
                       "currentRowStyle":{"color":"#d7ff9a","letterSpacing":1}

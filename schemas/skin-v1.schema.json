@@ -111,18 +111,11 @@
           "enum": ["primary", "exclusive", "auxiliary"],
           "description": "How the runtime manages the native window for this view."
         },
-        "layoutMode": {
-          "type": "string",
-          "enum": ["flow", "canvas"],
-          "default": "flow",
-          "description": "flow = flex tree (column/row/stack; default); canvas = absolute bounds. Canvas views default to dragInference auto."
-        },
         "dragInference": {
           "type": "string",
           "enum": ["auto", "manual"],
-          "description": "Window drag inference. Runtime default: auto when layoutMode is canvas, manual for flow. Override per view or via window.dragInference."
+          "description": "Window drag inference. Runtime default: auto when layout.type is canvas, manual for row/column. Override per view."
         },
-        "canvas": { "$ref": "#/$defs/canvasSpec" },
         "panels": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/panel" },
@@ -142,7 +135,7 @@
           "$ref": "#/$defs/windowChrome",
           "description": "Native window size constraints for this view."
         },
-        "layout": { "$ref": "#/$defs/layoutNode" }
+        "layout": { "$ref": "#/$defs/viewLayout" }
       }
     },
     "panel": {
@@ -251,22 +244,136 @@
         }
       }
     },
-    "canvasSpec": {
+    "viewLayout": {
+      "description": "View layout root. canvas = absolute bounds stage; row/column = flow flex tree. stack, overlay, tiledFrame, and subview are children only.",
       "type": "object",
-      "required": ["width", "height"],
-      "additionalProperties": false,
+      "required": ["type", "children"],
       "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["canvas", "row", "column"],
+          "description": "canvas = absolute bounds stage; row/column = flow flex tree. stack, overlay, tiledFrame, and subview are children only."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "const": "canvas" } },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/$defs/canvasRoot" }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "row" } },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/$defs/rowNode" }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "column" } },
+            "required": ["type"]
+          },
+          "then": { "$ref": "#/$defs/columnNode" }
+        }
+      ]
+    },
+    "canvasRoot": {
+      "type": "object",
+      "required": ["type", "width", "height", "children"],
+      "additionalProperties": false,
+      "description": "Canvas view stage. width/height are the logical stage size; native window chrome stays on view.window.",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "className": { "type": "string", "minLength": 1 },
+        "style": { "$ref": "#/$defs/nodeStyle" },
+        "type": { "const": "canvas" },
         "width": { "type": "integer", "minimum": 1 },
         "height": { "type": "integer", "minimum": 1 },
-        "widthWhen": {
-          "type": "object",
-          "additionalProperties": { "type": "integer", "minimum": 1 }
+        "children": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/layoutNode" }
         },
-        "heightWhen": {
-          "type": "object",
-          "additionalProperties": { "type": "integer", "minimum": 1 }
+        "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+        "animations": { "type": "object" },
+        "dragRegion": {
+          "type": "boolean",
+          "description": "When true, pointer events on this container move the skin window."
         }
       }
+    },
+    "rowNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": {
+              "const": "row",
+              "description": "Horizontal flex container. Valid as a view layout root or as a nested child."
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/layoutNode" }
+            },
+            "position": { "type": "string", "enum": ["relative", "absolute"] },
+            "zIndex": { "type": "integer" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "dragRegion": {
+              "type": "boolean",
+              "description": "When true, pointer events on this container move the skin window."
+            }
+          }
+        }
+      ]
+    },
+    "columnNode": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "children"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string", "minLength": 1 },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": {
+              "const": "column",
+              "description": "Vertical flex container. Valid as a view layout root or as a nested child."
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/layoutNode" }
+            },
+            "position": { "type": "string", "enum": ["relative", "absolute"] },
+            "zIndex": { "type": "integer" },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "dragRegion": {
+              "type": "boolean",
+              "description": "When true, pointer events on this container move the skin window."
+            }
+          }
+        }
+      ]
     },
     "layoutBounds": {
       "type": "object",
@@ -291,6 +398,8 @@
     "layoutNode": {
       "oneOf": [
         { "$ref": "#/$defs/containerNode" },
+        { "$ref": "#/$defs/rowNode" },
+        { "$ref": "#/$defs/columnNode" },
         { "$ref": "#/$defs/subviewNode" },
         { "$ref": "#/$defs/decorationNode" },
         { "$ref": "#/$defs/tiledFrameNode" },
@@ -420,8 +529,8 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": {
               "type": "string",
-              "enum": ["stack", "row", "column", "overlay", "canvas"],
-              "description": "canvas is valid only as a view layout root; nested groups use subview."
+              "enum": ["stack", "overlay"],
+              "description": "Nested flex containers. View layout roots use row, column, or canvas."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
