@@ -333,8 +333,6 @@ pub struct NodeStyle {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum LayoutNode {
-    #[serde(rename = "stack")]
-    Stack(ContainerFields),
     #[serde(rename = "row")]
     Row(ContainerFields),
     #[serde(rename = "column")]
@@ -1595,8 +1593,7 @@ fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
 
 fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
     match node {
-        LayoutNode::Stack(f)
-        | LayoutNode::Row(f)
+        LayoutNode::Row(f)
         | LayoutNode::Column(f)
         | LayoutNode::Overlay(f) => f.style.as_ref(),
         LayoutNode::Subview(f) => f.style.as_ref(),
@@ -1676,8 +1673,7 @@ fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<S
 fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<String>) {
     validate_node_style(layout_node_style(node), "style", errors);
     match node {
-        LayoutNode::Stack(f)
-        | LayoutNode::Row(f)
+        LayoutNode::Row(f)
         | LayoutNode::Column(f)
         | LayoutNode::Overlay(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);

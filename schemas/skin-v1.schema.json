@@ -245,14 +245,14 @@
       }
     },
     "viewLayout": {
-      "description": "View layout root. canvas = absolute bounds stage; row/column = flow flex tree. stack, overlay, tiledFrame, and subview are children only.",
+      "description": "View layout root. canvas = absolute bounds stage; row/column = flow flex tree. overlay, tiledFrame, and subview are children only.",
       "type": "object",
       "required": ["type", "children"],
       "properties": {
         "type": {
           "type": "string",
           "enum": ["canvas", "row", "column"],
-          "description": "canvas = absolute bounds stage; row/column = flow flex tree. stack, overlay, tiledFrame, and subview are children only."
+          "description": "canvas = absolute bounds stage; row/column = flow flex tree. overlay, tiledFrame, and subview are children only."
         }
       },
       "allOf": [
@@ -397,7 +397,7 @@
     },
     "layoutNode": {
       "oneOf": [
-        { "$ref": "#/$defs/containerNode" },
+        { "$ref": "#/$defs/overlayNode" },
         { "$ref": "#/$defs/rowNode" },
         { "$ref": "#/$defs/columnNode" },
         { "$ref": "#/$defs/subviewNode" },
@@ -516,7 +516,7 @@
         "zIndex": { "type": "integer" }
       }
     },
-    "containerNode": {
+    "overlayNode": {
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
@@ -528,9 +528,8 @@
             "className": { "type": "string", "minLength": 1 },
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": {
-              "type": "string",
-              "enum": ["stack", "overlay"],
-              "description": "Nested flex containers. View layout roots use row, column, or canvas."
+              "const": "overlay",
+              "description": "Nested grouping container. Children overlay in place. Not valid as a view layout root."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {
