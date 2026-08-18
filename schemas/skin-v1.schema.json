@@ -774,6 +774,10 @@
               "$ref": "#/$defs/nodeStyle",
               "description": "Panel-writable paint for the playing track row. Host applies it as inline style on __row--playing."
             },
+            "currentRowStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for the current track row. Host applies it as inline style on __row--current. When the row is also playing, playingRowStyle is merged on top."
+            },
             "type": { "const": "playlist" },
             "showDropdown": {
               "type": "boolean",
@@ -1174,8 +1178,8 @@
         },
         "variant": {
           "type": "string",
-          "enum": ["primary", "secondary", "ghost", "danger"],
-          "description": "Button only. App Button variant; default ghost."
+          "enum": ["primary", "secondary", "ghost", "danger", "plain"],
+          "description": "Button only. App Button variant, or plain for a chrome-less hit target (no hover fill). Default ghost."
         }
       }
     },

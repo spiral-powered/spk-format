@@ -785,7 +785,7 @@ pub enum Presentation {
         /// Visible label on primitive buttons (author content).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
-        /// Button chrome variant: `primary` | `secondary` | `ghost` | `danger` (default ghost).
+        /// Button chrome variant: `primary` | `secondary` | `ghost` | `danger` | `plain` (default ghost).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         variant: Option<String>,
     },
@@ -907,6 +907,8 @@ pub struct PlaylistFields {
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playing_row_style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_row_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_dropdown: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1300,7 +1302,8 @@ fn is_library_icon_id(id: &str) -> bool {
     }
 }
 
-const PRIMITIVE_BUTTON_VARIANTS: &[&str] = &["primary", "secondary", "ghost", "danger"];
+const PRIMITIVE_BUTTON_VARIANTS: &[&str] =
+    &["primary", "secondary", "ghost", "danger", "plain"];
 
 fn validate_primitive_presentation(
     icon: Option<&str>,
@@ -1702,6 +1705,7 @@ fn validate_layout_node(
         }
         LayoutNode::Playlist(f) => {
             validate_node_style(f.playing_row_style.as_ref(), "playingRowStyle", errors);
+            validate_node_style(f.current_row_style.as_ref(), "currentRowStyle", errors);
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
@@ -2052,6 +2056,30 @@ mod tests {
     }
 
     #[test]
+    fn accepts_primitive_plain_variant() {
+        let (dir, path) = write_skin_json(
+            "primitive-plain-variant",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"button",
+                    "action":"eq.reset",
+                    "presentation":{"kind":"primitive","text":"reset","variant":"plain"}
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn rejects_missing_primitive_asset_icon() {
         let (dir, path) = write_skin_json(
             "primitive-missing-asset",
@@ -2321,6 +2349,64 @@ mod tests {
                     "children":[{
                       "type":"playlist",
                       "playingRowStyle":{"color":"#fff","letterSpacing":1}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("letterSpacing") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_playlist_current_row_style() {
+        let (dir, path) = write_skin_json(
+            "playlist-current-row-style",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "children":[{
+                      "type":"playlist",
+                      "id":"pl-view",
+                      "style":{"fontSize":11},
+                      "currentRowStyle":{"color":"#d7ff9a"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_current_row_style_key() {
+        let (dir, path) = write_skin_json(
+            "unknown-current-row-style-key",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "children":[{
+                      "type":"playlist",
+                      "currentRowStyle":{"color":"#d7ff9a","letterSpacing":1}
                     }]
                   }
                 }
