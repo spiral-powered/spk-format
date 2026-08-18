@@ -770,6 +770,10 @@
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
             "style": { "$ref": "#/$defs/nodeStyle" },
+            "playingRowStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for the playing track row. Host applies it as inline style on __row--playing."
+            },
             "type": { "const": "playlist" },
             "showDropdown": {
               "type": "boolean",

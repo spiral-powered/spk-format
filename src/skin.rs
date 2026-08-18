@@ -906,6 +906,8 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playing_row_style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_dropdown: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_duration: Option<bool>,
@@ -1535,13 +1537,13 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
     }
 }
 
-fn validate_node_style(style: Option<&NodeStyle>, errors: &mut Vec<String>) {
+fn validate_node_style(style: Option<&NodeStyle>, field: &str, errors: &mut Vec<String>) {
     let Some(style) = style else {
         return;
     };
     if let Some(size) = style.font_size {
         if size <= 0.0 {
-            errors.push("style.fontSize must be greater than 0".into());
+            errors.push(format!("{field}.fontSize must be greater than 0"));
         }
     }
     if let Some(weight) = &style.font_weight {
@@ -1550,18 +1552,20 @@ fn validate_node_style(style: Option<&NodeStyle>, errors: &mut Vec<String>) {
             FontWeight::Number(n) if (100..=900).contains(n) => {}
             FontWeight::Keyword(keyword) => {
                 errors.push(format!(
-                    "style.fontWeight \"{keyword}\" must be normal, bold, or 100–900"
+                    "{field}.fontWeight \"{keyword}\" must be normal, bold, or 100–900"
                 ));
             }
             FontWeight::Number(n) => {
-                errors.push(format!("style.fontWeight {n} must be between 100 and 900"));
+                errors.push(format!(
+                    "{field}.fontWeight {n} must be between 100 and 900"
+                ));
             }
         }
     }
     if let Some(align) = &style.text_align {
         if !matches!(align.as_str(), "left" | "center" | "right") {
             errors.push(format!(
-                "style.textAlign \"{align}\" must be left, center, or right"
+                "{field}.textAlign \"{align}\" must be left, center, or right"
             ));
         }
     }
@@ -1630,7 +1634,7 @@ fn validate_layout_node(
     errors: &mut Vec<String>,
     is_root: bool,
 ) {
-    validate_node_style(layout_node_style(node), errors);
+    validate_node_style(layout_node_style(node), "style", errors);
     match node {
         LayoutNode::Stack(f)
         | LayoutNode::Row(f)
@@ -1697,6 +1701,7 @@ fn validate_layout_node(
             validate_presentation(&f.presentation, pack_dir, errors);
         }
         LayoutNode::Playlist(f) => {
+            validate_node_style(f.playing_row_style.as_ref(), "playingRowStyle", errors);
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
@@ -2269,6 +2274,64 @@ mod tests {
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(err.contains("textAlign"), "unexpected error: {err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_playlist_playing_row_style() {
+        let (dir, path) = write_skin_json(
+            "playlist-playing-row-style",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "children":[{
+                      "type":"playlist",
+                      "id":"pl-list",
+                      "style":{"backgroundColor":"#000000","color":"#7ec509","fontSize":11},
+                      "playingRowStyle":{"color":"#ffffff","backgroundColor":"#369108"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_playing_row_style_key() {
+        let (dir, path) = write_skin_json(
+            "unknown-playing-row-style-key",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "children":[{
+                      "type":"playlist",
+                      "playingRowStyle":{"color":"#fff","letterSpacing":1}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("letterSpacing") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
