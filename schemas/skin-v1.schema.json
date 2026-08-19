@@ -124,7 +124,7 @@
         "onActivate": {
           "type": "array",
           "description": "Effects run once when the skin-mode window becomes visible.",
-          "items": { "$ref": "#/$defs/viewActivateEffect" }
+          "items": { "$ref": "#/$defs/skinLifecycleEffect" }
         },
         "window": {
           "$ref": "#/$defs/windowChrome",
@@ -205,10 +205,11 @@
         }
       }
     },
-    "viewActivateEffect": {
+    "skinClickEffect": {
       "type": "object",
       "required": ["action"],
       "additionalProperties": false,
+      "description": "Click-handler step. Click wavs stay on the control (sound / soundWhen), not here.",
       "properties": {
         "when": {
           "$ref": "#/$defs/skinCondition",
@@ -217,7 +218,33 @@
         "delayMs": {
           "type": "integer",
           "minimum": 0,
-          "description": "Wait after activate before dispatch (default 0)."
+          "description": "Wait after click before dispatch (default 0)."
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Existing skin action id (e.g. view.applyStateEvent)."
+        },
+        "payload": {
+          "type": "object",
+          "description": "Merged into action payload (viewId, url, variable, event, …)."
+        }
+      }
+    },
+    "skinLifecycleEffect": {
+      "type": "object",
+      "required": ["action"],
+      "additionalProperties": false,
+      "description": "View onActivate or GIF onComplete step. May play a sound with the action.",
+      "properties": {
+        "when": {
+          "$ref": "#/$defs/skinCondition",
+          "description": "Condition; effect runs only when truthy (same evaluator as visibleWhen)."
+        },
+        "delayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wait before dispatch (default 0)."
         },
         "action": {
           "type": "string",
@@ -782,9 +809,11 @@
                 "time"
               ]
             },
-            "action": { "type": "string" },
-            "viewId": { "type": "string", "minLength": 1 },
-            "url": { "type": "string", "minLength": 1 },
+            "onClick": {
+              "type": "array",
+              "description": "Ordered click effects. Omit sound here; use control sound / soundWhen.",
+              "items": { "$ref": "#/$defs/skinClickEffect" }
+            },
             "bind": { "type": "string" },
             "enabledWhen": {
               "$ref": "#/$defs/skinCondition",
@@ -812,11 +841,6 @@
               "type": "object",
               "description": "Bind path → tooltip when truthy (last match wins).",
               "additionalProperties": { "type": "string" }
-            },
-            "payload": {
-              "type": "object",
-              "description": "Extra action payload merged at dispatch.",
-              "additionalProperties": true
             },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -1063,9 +1087,6 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "eqBand" },
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
-            "action": { "type": "string" },
-            "viewId": { "type": "string", "minLength": 1 },
-            "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "enabledWhen": { "$ref": "#/$defs/skinCondition" },
             "tooltip": {
@@ -1102,9 +1123,6 @@
             "className": { "type": "string", "minLength": 1 },
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "balance" },
-            "action": { "type": "string" },
-            "viewId": { "type": "string", "minLength": 1 },
-            "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
             "enabledWhen": { "$ref": "#/$defs/skinCondition" },
             "tooltip": {
@@ -1185,16 +1203,19 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["mappingColor", "action"],
+            "required": ["mappingColor", "onClick"],
             "additionalProperties": false,
             "properties": {
               "mappingColor": {
                 "type": "string",
                 "pattern": "^#[0-9A-Fa-f]{6}$"
               },
-              "action": { "type": "string" },
-              "viewId": { "type": "string", "minLength": 1 },
-              "url": { "type": "string", "minLength": 1 },
+              "onClick": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Ordered click effects. Omit sound here; use element sound / soundWhen.",
+                "items": { "$ref": "#/$defs/skinClickEffect" }
+              },
               "activeWhen": {
                 "$ref": "#/$defs/skinCondition",
                 "description": "When truthy, keep the pressed overlay (WMP sticky buttons)."
@@ -1221,11 +1242,6 @@
                 "type": "object",
                 "description": "Bind path → tooltip when truthy (last match wins).",
                 "additionalProperties": { "type": "string" }
-              },
-              "payload": {
-                "type": "object",
-                "description": "Extra action payload merged at dispatch.",
-                "additionalProperties": true
               }
             }
           }
@@ -1242,20 +1258,17 @@
         "durationMs": {
           "type": "integer",
           "minimum": 1,
-          "description": "Target loop duration in ms; scales frame timing to match. With completeAction, fires after one scaled loop."
+          "description": "Target loop duration in ms; scales frame timing to match. With onComplete, fires after one scaled loop."
         },
         "playbackRate": {
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "Multiplier on native frame delays (1 = file timing, 0.5 = half speed). Ignored when durationMs is set."
         },
-        "completeAction": {
-          "type": "string",
-          "description": "Action dispatched after the first scaled animation loop completes."
-        },
-        "completePayload": {
-          "type": "object",
-          "description": "Payload merged when completeAction fires (e.g. view.setVariable)."
+        "onComplete": {
+          "type": "array",
+          "description": "Effects dispatched after the first scaled animation loop completes.",
+          "items": { "$ref": "#/$defs/skinLifecycleEffect" }
         }
       }
     },

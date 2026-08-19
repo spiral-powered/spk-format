@@ -162,8 +162,20 @@ impl SkinCondition {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinViewActivateEffect {
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SkinClickEffect {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_ms: Option<u64>,
+    pub action: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SkinLifecycleEffect {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -185,7 +197,7 @@ pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<HashMap<String, SkinViewStateSpec>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub on_activate: Option<Vec<SkinViewActivateEffect>>,
+    pub on_activate: Option<Vec<SkinLifecycleEffect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub window: Option<WindowChrome>,
     pub layout: ViewLayout,
@@ -541,11 +553,7 @@ pub struct TiledFrameFields {
 #[serde(rename_all = "camelCase")]
 pub struct ButtonGroupElement {
     pub mapping_color: String,
-    pub action: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub view_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
+    pub on_click: Vec<SkinClickEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -558,8 +566,6 @@ pub struct ButtonGroupElement {
     pub tooltip: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip_when: Option<HashMap<String, String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payload: Option<HashMap<String, serde_json::Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -669,11 +675,7 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub action: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub view_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub url: Option<String>,
+    pub on_click: Option<Vec<SkinClickEffect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -688,8 +690,6 @@ pub struct ControlFields {
     pub tooltip: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip_when: Option<HashMap<String, String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payload: Option<HashMap<String, serde_json::Value>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -759,9 +759,7 @@ pub enum Presentation {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         duration_ms: Option<u64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        complete_action: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        complete_payload: Option<HashMap<String, serde_json::Value>>,
+        on_complete: Option<Vec<SkinLifecycleEffect>>,
     },
     #[serde(rename = "primitive", rename_all = "camelCase")]
     Primitive {
@@ -1126,6 +1124,24 @@ fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
     }
 }
 
+fn validate_click_effects(effects: Option<&[SkinClickEffect]>, errors: &mut Vec<String>) {
+    if let Some(effects) = effects {
+        for effect in effects {
+            validate_action(Some(effect.action.as_str()), errors);
+            validate_condition(effect.when.as_ref(), "when", errors);
+        }
+    }
+}
+
+fn validate_lifecycle_effects(effects: Option<&[SkinLifecycleEffect]>, errors: &mut Vec<String>) {
+    if let Some(effects) = effects {
+        for effect in effects {
+            validate_action(Some(effect.action.as_str()), errors);
+            validate_condition(effect.when.as_ref(), "when", errors);
+        }
+    }
+}
+
 fn validate_bitmap_tiled_slider_presentation(
     kind: &str,
     track: Option<&str>,
@@ -1320,11 +1336,11 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         }
         Presentation::Gif {
             asset,
-            complete_action,
+            on_complete,
             ..
         } => {
             validate_skin_asset_file(asset, pack_dir, "gif asset", errors);
-            validate_action(complete_action.as_deref(), errors);
+            validate_lifecycle_effects(on_complete.as_deref(), errors);
         }
         Presentation::Css { stylesheet, .. } => {
             if let Some(sheet) = stylesheet {
@@ -1508,7 +1524,10 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 errors.push("buttonGroup elements must not be empty".into());
             }
             for element in elements {
-                validate_action(Some(element.action.as_str()), errors);
+                if element.on_click.is_empty() {
+                    errors.push("buttonGroup element onClick must not be empty".into());
+                }
+                validate_click_effects(Some(&element.on_click), errors);
                 validate_condition(element.active_when.as_ref(), "activeWhen", errors);
                 validate_condition(element.enabled_when.as_ref(), "enabledWhen", errors);
             }
@@ -1668,7 +1687,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
         | LayoutNode::Volume(f)
         | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => {
-            validate_action(f.action.as_deref(), errors);
+            validate_click_effects(f.on_click.as_deref(), errors);
             validate_bind(f.bind.as_deref(), "bind", errors);
             validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
             validate_condition(f.active_when.as_ref(), "activeWhen", errors);
@@ -1700,7 +1719,7 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                     f.band
                 ));
             }
-            validate_action(f.control.action.as_deref(), errors);
+            validate_click_effects(f.control.on_click.as_deref(), errors);
             validate_bind(f.control.bind.as_deref(), "bind", errors);
             validate_condition(f.control.enabled_when.as_ref(), "enabledWhen", errors);
             validate_condition(f.control.visible_when.as_ref(), "visibleWhen", errors);
@@ -1861,6 +1880,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 ));
             }
         }
+        validate_lifecycle_effects(view.on_activate.as_deref(), &mut errors);
         validate_view_layout(&view.layout, pack_dir, &mut errors);
     }
 
@@ -2010,7 +2030,7 @@ mod tests {
                     "type":"column",
                     "children":[{
                     "type":"button",
-                    "action":"skin.openPicker",
+                    "onClick":[{"action":"skin.openPicker"}],
                     "presentation":{"kind":"primitive","icon":"setList","variant":"ghost"}
                     }]
                   }
@@ -2037,7 +2057,7 @@ mod tests {
                     "type":"column",
                     "children":[{
                     "type":"button",
-                    "action":"eq.reset",
+                    "onClick":[{"action":"eq.reset"}],
                     "presentation":{"kind":"primitive","text":"reset","variant":"plain"}
                     }]
                   }
@@ -2064,7 +2084,7 @@ mod tests {
                     "type":"column",
                     "children":[{
                     "type":"button",
-                    "action":"skin.openPicker",
+                    "onClick":[{"action":"skin.openPicker"}],
                     "presentation":{"kind":"primitive","icon":"icons/missing.png"}
                     }]
                   }
@@ -2092,7 +2112,7 @@ mod tests {
                     "type":"column",
                     "children":[{
                     "type":"button",
-                    "action":"skin.openPicker",
+                    "onClick":[{"action":"skin.openPicker"}],
                     "presentation":{"kind":"primitive","variant":"playlist"}
                     }]
                   }
@@ -2120,7 +2140,7 @@ mod tests {
                     "type":"column",
                     "children":[{
                     "type":"button",
-                    "action":"skin.openPicker",
+                    "onClick":[{"action":"skin.openPicker"}],
                     "presentation":{"kind":"primitive","icon":"Set-List"}
                     }]
                   }
@@ -2443,7 +2463,7 @@ mod tests {
                     "height":10,
                     "children":[{
                       "type":"button",
-                      "action":"view.applyStateEvent",
+                      "onClick":[{"action":"view.applyStateEvent"}],
                       "soundWhen":{
                         "view.shutter.intro":"open",
                         "view.shutter.open":"close"
@@ -2475,6 +2495,37 @@ mod tests {
         assert_eq!(
             sound_when.get("view.shutter.open").map(String::as_str),
             Some("close")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_sound_on_click_effect() {
+        let (dir, path) = write_skin_json(
+            "onclick-sound",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                      "type":"button",
+                      "onClick":[{"action":"skin.openPicker","sound":"button"}],
+                      "presentation":{"kind":"primitive"}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("sound") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
