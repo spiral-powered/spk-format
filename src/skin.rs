@@ -205,20 +205,10 @@ pub struct SkinView {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SkinViewStateThen {
-    pub set: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delay_ms: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SkinViewStateTransition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<Vec<serde_json::Value>>,
     pub set: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub then: Option<Vec<SkinViewStateThen>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2531,9 +2521,9 @@ mod tests {
     }
 
     #[test]
-    fn preserves_view_state_then() {
+    fn preserves_view_state_transition() {
         let (dir, path) = write_skin_json(
-            "view-state-then",
+            "view-state-transition",
             r#"{
               "name":"Headspace",
               "author":"a",
@@ -2553,10 +2543,7 @@ mod tests {
                       "on":{
                         "toggle":[{
                           "from":["closed"],
-                          "set":"opening",
-                          "then":[
-                            {"set":"open","delayMs":120}
-                          ]
+                          "set":"open"
                         }]
                       }
                     }
@@ -2568,55 +2555,11 @@ mod tests {
         let manifest = read_skin_manifest(&path).unwrap();
         let spec = &manifest.views["main"].state.as_ref().unwrap()["eq"];
         let branch = &spec.on.as_ref().unwrap()["toggle"][0];
-        assert_eq!(branch.set, serde_json::json!("opening"));
-        let steps = branch.then.as_ref().expect("then dropped");
-        assert_eq!(steps[0].set, serde_json::json!("open"));
-        assert_eq!(steps[0].delay_ms, Some(120));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn preserves_single_step_view_state_then() {
-        let (dir, path) = write_skin_json(
-            "view-state-then-single",
-            r#"{
-              "name":"Headspace",
-              "author":"a",
-              "description":"",
-              "defaultView":"main",
-              "views":{
-                "main":{
-                  "layout":{
-                    "type":"canvas",
-                    "width":10,
-                    "height":10,
-                    "children":[]
-                  },
-                  "state":{
-                    "eq":{
-                      "default":"open",
-                      "on":{
-                        "toggle":[{
-                          "from":["open"],
-                          "set":"closing",
-                          "then":[
-                            {"set":"closed","delayMs":120}
-                          ]
-                        }]
-                      }
-                    }
-                  }
-                }
-              }
-            }"#,
+        assert_eq!(
+            branch.from.as_ref().unwrap(),
+            &vec![serde_json::json!("closed")]
         );
-        let manifest = read_skin_manifest(&path).unwrap();
-        let spec = &manifest.views["main"].state.as_ref().unwrap()["eq"];
-        let branch = &spec.on.as_ref().unwrap()["toggle"][0];
-        let steps = branch.then.as_ref().expect("then dropped");
-        assert_eq!(steps.len(), 1);
-        assert_eq!(steps[0].set, serde_json::json!("closed"));
-        assert_eq!(steps[0].delay_ms, Some(120));
+        assert_eq!(branch.set, serde_json::json!("open"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -178,30 +178,6 @@
             { "type": "boolean" }
           ],
           "description": "New value for the variable."
-        },
-        "then": {
-          "description": "Ordered follow-up assignments after set (slide settle).",
-          "type": "array",
-          "items": { "$ref": "#/$defs/viewStateThen" }
-        }
-      }
-    },
-    "viewStateThen": {
-      "type": "object",
-      "required": ["set"],
-      "additionalProperties": false,
-      "properties": {
-        "set": {
-          "oneOf": [
-            { "type": "string" },
-            { "type": "number" },
-            { "type": "boolean" }
-          ]
-        },
-        "delayMs": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Wait before this step (default 0)."
         }
       }
     },
