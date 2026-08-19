@@ -116,11 +116,6 @@
           "enum": ["auto", "manual"],
           "description": "Window drag inference. Runtime default: auto when layout.type is canvas, manual for row/column. Override per view."
         },
-        "panels": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/panel" },
-          "description": "In-view overlays toggled via skin.togglePanel (drawers, dropdowns)."
-        },
         "state": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/viewStateVariable" },
@@ -136,29 +131,6 @@
           "description": "Native window size constraints for this view."
         },
         "layout": { "$ref": "#/$defs/viewLayout" }
-      }
-    },
-    "panel": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "defaultOpen": { "type": "boolean" },
-        "windowWhenOpen": { "$ref": "#/$defs/panelWindowOverride" },
-        "motion": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "durationMs": { "type": "integer", "minimum": 0 }
-          }
-        }
-      }
-    },
-    "panelWindowOverride": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "width": { "type": "integer", "minimum": 1 },
-        "height": { "type": "integer", "minimum": 1 }
       }
     },
     "viewStateVariable": {
@@ -206,6 +178,30 @@
             { "type": "boolean" }
           ],
           "description": "New value for the variable."
+        },
+        "then": {
+          "description": "Ordered follow-up assignments after set (slide settle).",
+          "type": "array",
+          "items": { "$ref": "#/$defs/viewStateThen" }
+        }
+      }
+    },
+    "viewStateThen": {
+      "type": "object",
+      "required": ["set"],
+      "additionalProperties": false,
+      "properties": {
+        "set": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" }
+          ]
+        },
+        "delayMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Wait before this step (default 0)."
         }
       }
     },
@@ -787,7 +783,6 @@
               ]
             },
             "action": { "type": "string" },
-            "panelId": { "type": "string", "minLength": 1 },
             "viewId": { "type": "string", "minLength": 1 },
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
@@ -1069,7 +1064,6 @@
             "type": { "const": "eqBand" },
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
             "action": { "type": "string" },
-            "panelId": { "type": "string", "minLength": 1 },
             "viewId": { "type": "string", "minLength": 1 },
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
@@ -1109,7 +1103,6 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "balance" },
             "action": { "type": "string" },
-            "panelId": { "type": "string", "minLength": 1 },
             "viewId": { "type": "string", "minLength": 1 },
             "url": { "type": "string", "minLength": 1 },
             "bind": { "type": "string" },
@@ -1200,7 +1193,6 @@
                 "pattern": "^#[0-9A-Fa-f]{6}$"
               },
               "action": { "type": "string" },
-              "panelId": { "type": "string", "minLength": 1 },
               "viewId": { "type": "string", "minLength": 1 },
               "url": { "type": "string", "minLength": 1 },
               "activeWhen": {

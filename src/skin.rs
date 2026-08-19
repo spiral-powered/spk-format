@@ -30,9 +30,6 @@ const KNOWN_ACTIONS: &[&str] = &[
     "skin.minimize",
     "skin.toggleAlwaysOnTop",
     "skin.restoreMainWindow",
-    "skin.togglePanel",
-    "skin.openPanel",
-    "skin.closePanel",
     "skin.switchView",
     "skin.openView",
     "skin.closeView",
@@ -137,33 +134,6 @@ pub struct SkinManifest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinPanelWindowOverride {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinPanelMotion {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub duration_ms: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkinPanel {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub default_open: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub window_when_open: Option<SkinPanelWindowOverride>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub motion: Option<SkinPanelMotion>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SkinCondition {
     Leaf(String),
@@ -213,8 +183,6 @@ pub struct SkinView {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_inference: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub panels: Option<HashMap<String, SkinPanel>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub state: Option<HashMap<String, SkinViewStateSpec>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_activate: Option<Vec<SkinViewActivateEffect>>,
@@ -225,10 +193,20 @@ pub struct SkinView {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct SkinViewStateThen {
+    pub set: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SkinViewStateTransition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<Vec<serde_json::Value>>,
     pub set: serde_json::Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub then: Option<Vec<SkinViewStateThen>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -565,8 +543,6 @@ pub struct ButtonGroupElement {
     pub mapping_color: String,
     pub action: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub panel_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub view_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
@@ -694,8 +670,6 @@ pub struct ControlFields {
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub panel_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub view_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1012,15 +986,6 @@ fn validate_condition(condition: Option<&SkinCondition>, field: &str, errors: &m
 fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
     if let Some(p) = path {
         if KNOWN_BINDS.contains(&p) {
-            return;
-        }
-        if p.starts_with("skin.panel.")
-            && p.split('.').count() == 4
-            && matches!(
-                p.rsplit('.').next(),
-                Some("open" | "closed" | "revealed" | "settled" | "openSettled")
-            )
-        {
             return;
         }
         if p.starts_with("skin.pref.") {
@@ -2511,6 +2476,96 @@ mod tests {
             sound_when.get("view.shutter.open").map(String::as_str),
             Some("close")
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preserves_view_state_then() {
+        let (dir, path) = write_skin_json(
+            "view-state-then",
+            r#"{
+              "name":"Headspace",
+              "author":"a",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[]
+                  },
+                  "state":{
+                    "eq":{
+                      "default":"closed",
+                      "on":{
+                        "toggle":[{
+                          "from":["closed"],
+                          "set":"opening",
+                          "then":[
+                            {"set":"open","delayMs":120}
+                          ]
+                        }]
+                      }
+                    }
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let spec = &manifest.views["main"].state.as_ref().unwrap()["eq"];
+        let branch = &spec.on.as_ref().unwrap()["toggle"][0];
+        assert_eq!(branch.set, serde_json::json!("opening"));
+        let steps = branch.then.as_ref().expect("then dropped");
+        assert_eq!(steps[0].set, serde_json::json!("open"));
+        assert_eq!(steps[0].delay_ms, Some(120));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preserves_single_step_view_state_then() {
+        let (dir, path) = write_skin_json(
+            "view-state-then-single",
+            r#"{
+              "name":"Headspace",
+              "author":"a",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[]
+                  },
+                  "state":{
+                    "eq":{
+                      "default":"open",
+                      "on":{
+                        "toggle":[{
+                          "from":["open"],
+                          "set":"closing",
+                          "then":[
+                            {"set":"closed","delayMs":120}
+                          ]
+                        }]
+                      }
+                    }
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let spec = &manifest.views["main"].state.as_ref().unwrap()["eq"];
+        let branch = &spec.on.as_ref().unwrap()["toggle"][0];
+        let steps = branch.then.as_ref().expect("then dropped");
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0].set, serde_json::json!("closed"));
+        assert_eq!(steps[0].delay_ms, Some(120));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
