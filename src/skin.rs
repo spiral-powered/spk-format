@@ -119,7 +119,6 @@ pub struct SkinManifest {
     /// Raster only (`ALLOWED_PREVIEW_EXTENSIONS`); SVG is not permitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
-    pub default_view: String,
     pub views: HashMap<String, SkinView>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visualizer: Option<SkinVisualizer>,
@@ -1325,9 +1324,7 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
             }
         }
         Presentation::Gif {
-            asset,
-            on_complete,
-            ..
+            asset, on_complete, ..
         } => {
             validate_skin_asset_file(asset, pack_dir, "gif asset", errors);
             validate_lifecycle_effects(on_complete.as_deref(), errors);
@@ -1806,12 +1803,6 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
     if manifest.name.trim().is_empty() {
         errors.push("skin name cannot be empty".to_string());
     }
-    if !manifest.views.contains_key(&manifest.default_view) {
-        errors.push(format!(
-            "defaultView \"{}\" is not defined in views",
-            manifest.default_view
-        ));
-    }
     if let Some(preview) = &manifest.preview {
         if let Err(message) = crate::validate_preview_file(pack_dir, preview) {
             errors.push(message);
@@ -1879,6 +1870,23 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
         .values()
         .filter(|view| view.presentation.as_deref() == Some("primary"))
         .count();
+    let view_count = manifest.views.len();
+    if view_count == 1 {
+        if let Some((view_name, view)) = manifest.views.iter().next() {
+            if let Some(presentation) = &view.presentation {
+                if presentation != "primary" {
+                    errors.push(format!(
+                        "views.{view_name}.presentation \"{presentation}\" is not valid on a single-view skin (omit presentation or use primary)"
+                    ));
+                }
+            }
+        }
+    } else if view_count >= 2 && primary_count == 0 {
+        errors.push(
+            "skins with two or more views must declare exactly one view with presentation \"primary\""
+                .into(),
+        );
+    }
     if primary_count > 1 {
         errors.push(format!(
             "exactly one view may declare presentation \"primary\" (found {primary_count})"
@@ -1918,7 +1926,7 @@ mod tests {
     fn rejects_missing_skin_name() {
         let (dir, path) = write_skin_json(
             "bad-name",
-            r#"{"name":"","author":"a","description":"","defaultView":"main","views":{"main":{"layout":{"type":"canvas","width":100,"height":80,"children":[]}}}}"#,
+            r#"{"name":"","author":"a","description":"","views":{"main":{"layout":{"type":"canvas","width":100,"height":80,"children":[]}}}}"#,
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(err.contains("name") || err.contains("layout") || !err.is_empty());
@@ -1933,7 +1941,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -1961,7 +1968,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -1988,7 +1994,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2013,7 +2018,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2040,7 +2044,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2067,7 +2070,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2095,7 +2097,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2123,7 +2124,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2151,7 +2151,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2178,7 +2177,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2204,7 +2202,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2235,7 +2232,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2266,7 +2262,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2293,7 +2288,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2320,7 +2314,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2350,7 +2343,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2382,7 +2374,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2412,7 +2403,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2444,7 +2434,6 @@ mod tests {
               "name":"T3",
               "author":"a",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2497,7 +2486,6 @@ mod tests {
               "name":"Vanilla",
               "author":"Spiral",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2528,7 +2516,6 @@ mod tests {
               "name":"Headspace",
               "author":"a",
               "description":"",
-              "defaultView":"main",
               "views":{
                 "main":{
                   "layout":{
@@ -2560,6 +2547,100 @@ mod tests {
             &vec![serde_json::json!("closed")]
         );
         assert_eq!(branch.set, serde_json::json!("open"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_exclusive_on_single_view() {
+        let (dir, path) = write_skin_json(
+            "single-exclusive",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "mini":{
+                  "presentation":"exclusive",
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("single-view"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_multi_view_without_primary() {
+        let (dir, path) = write_skin_json(
+            "multi-no-primary",
+            r#"{
+              "name":"T3",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                },
+                "mini":{
+                  "presentation":"exclusive",
+                  "layout":{"type":"canvas","width":50,"height":40,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("primary"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_multi_view_with_one_primary() {
+        let (dir, path) = write_skin_json(
+            "multi-primary",
+            r#"{
+              "name":"T3",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "presentation":"primary",
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                },
+                "mini":{
+                  "presentation":"exclusive",
+                  "layout":{"type":"canvas","width":50,"height":40,"children":[]}
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_two_primary_views() {
+        let (dir, path) = write_skin_json(
+            "two-primary",
+            r#"{
+              "name":"T3",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "presentation":"primary",
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                },
+                "mini":{
+                  "presentation":"primary",
+                  "layout":{"type":"canvas","width":50,"height":40,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("exactly one"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -3,7 +3,7 @@
   "$id": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/skin-v1.schema.json",
   "title": "Spiral skin mode manifest v1",
   "type": "object",
-  "required": ["id", "name", "author", "description", "defaultView", "views"],
+  "required": ["id", "name", "author", "description", "views"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -40,7 +40,6 @@
       "pattern": "^(?!.*\\.\\.)(?!/).+\\.(png|jpg|jpeg|webp|gif)$",
       "description": "Optional preview image path relative to the contribution directory. Raster only: png, jpg, jpeg, webp, gif."
     },
-    "defaultView": { "type": "string", "minLength": 1 },
     "views": {
       "type": "object",
       "minProperties": 1,
@@ -109,7 +108,7 @@
         "presentation": {
           "type": "string",
           "enum": ["primary", "exclusive", "auxiliary"],
-          "description": "How the runtime manages the native window for this view."
+          "description": "How the runtime manages the native window for this view. Omit on a single-view skin (assumed primary). Skins with two or more views must set exactly one view to primary."
         },
         "dragInference": {
           "type": "string",
