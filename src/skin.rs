@@ -229,8 +229,6 @@ pub struct SkinViewStateTransition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub from: Option<Vec<serde_json::Value>>,
     pub set: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sound: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -579,6 +577,8 @@ pub struct ButtonGroupElement {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound_when: Option<HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip_when: Option<HashMap<String, String>>,
@@ -708,6 +708,8 @@ pub struct ControlFields {
     pub active_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sound_when: Option<HashMap<String, String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooltip: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1312,8 +1314,7 @@ fn is_library_icon_id(id: &str) -> bool {
     }
 }
 
-const PRIMITIVE_BUTTON_VARIANTS: &[&str] =
-    &["primary", "secondary", "ghost", "danger", "plain"];
+const PRIMITIVE_BUTTON_VARIANTS: &[&str] = &["primary", "secondary", "ghost", "danger", "plain"];
 
 fn validate_primitive_presentation(
     icon: Option<&str>,
@@ -1593,9 +1594,7 @@ fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
 
 fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
     match node {
-        LayoutNode::Row(f)
-        | LayoutNode::Column(f)
-        | LayoutNode::Overlay(f) => f.style.as_ref(),
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.style.as_ref(),
         LayoutNode::Subview(f) => f.style.as_ref(),
         LayoutNode::Decoration(f) => f.style.as_ref(),
         LayoutNode::Button(f)
@@ -1673,9 +1672,7 @@ fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<S
 fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<String>) {
     validate_node_style(layout_node_style(node), "style", errors);
     match node {
-        LayoutNode::Row(f)
-        | LayoutNode::Column(f)
-        | LayoutNode::Overlay(f) => {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
@@ -2460,6 +2457,59 @@ mod tests {
         assert!(
             err.contains("letterSpacing") || err.contains("valid skin JSON"),
             "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preserves_button_sound_when() {
+        let (dir, path) = write_skin_json(
+            "sound-when",
+            r#"{
+              "name":"T3",
+              "author":"a",
+              "description":"",
+              "defaultView":"main",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[{
+                      "type":"button",
+                      "action":"view.applyStateEvent",
+                      "soundWhen":{
+                        "view.shutter.intro":"open",
+                        "view.shutter.open":"close"
+                      },
+                      "presentation":{
+                        "kind":"bitmap",
+                        "width":1,
+                        "height":1,
+                        "assets":{"default":"b.png"}
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Button(button) = &canvas.children[0] else {
+            panic!("expected button");
+        };
+        let sound_when = button.sound_when.as_ref().expect("soundWhen dropped");
+        assert_eq!(
+            sound_when.get("view.shutter.intro").map(String::as_str),
+            Some("open")
+        );
+        assert_eq!(
+            sound_when.get("view.shutter.open").map(String::as_str),
+            Some("close")
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
