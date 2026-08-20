@@ -727,6 +727,8 @@ pub struct InteractiveAssets {
     pub hover: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pressed: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disabled: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1084,6 +1086,9 @@ fn validate_interactive_assets(
     }
     if let Some(pressed) = &assets.pressed {
         validate_skin_asset_file(pressed, pack_dir, &format!("{label}.pressed"), errors);
+    }
+    if let Some(disabled) = &assets.disabled {
+        validate_skin_asset_file(disabled, pack_dir, &format!("{label}.disabled"), errors);
     }
 }
 

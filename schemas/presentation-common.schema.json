@@ -22,7 +22,8 @@
       "properties": {
         "default": { "$ref": "#/$defs/skinAssetFile" },
         "hover": { "$ref": "#/$defs/skinAssetFile" },
-        "pressed": { "$ref": "#/$defs/skinAssetFile" }
+        "pressed": { "$ref": "#/$defs/skinAssetFile" },
+        "disabled": { "$ref": "#/$defs/skinAssetFile" }
       }
     },
     "interactiveAssetsWhen": {
