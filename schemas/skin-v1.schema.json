@@ -101,6 +101,17 @@
       "additionalProperties": { "$ref": "#/$defs/interactiveAssets" },
       "description": "Bind path → asset set when truthy (last match wins)."
     },
+    "thumbAssets": {
+      "type": "object",
+      "required": ["default"],
+      "additionalProperties": false,
+      "description": "Slider thumb sprite set. default is WMP thumbImage; hover / pressed map thumbHoverImage / thumbDownImage.",
+      "properties": {
+        "default": { "$ref": "#/$defs/skinAssetFile" },
+        "hover": { "$ref": "#/$defs/skinAssetFile" },
+        "pressed": { "$ref": "#/$defs/skinAssetFile" }
+      }
+    },
     "view": {
       "type": "object",
       "required": ["layout"],
@@ -1335,15 +1346,7 @@
           "$ref": "#/$defs/skinAssetFile",
           "description": "Optional value fill clipped along the slider axis (WMP foregroundImage). Empty groove may be `track` or baked into the panel."
         },
-        "thumb": { "$ref": "#/$defs/skinAssetFile" },
-        "thumbHover": {
-          "$ref": "#/$defs/skinAssetFile",
-          "description": "WMP thumbHoverImage; shown while hovering."
-        },
-        "thumbPressed": {
-          "$ref": "#/$defs/skinAssetFile",
-          "description": "WMP thumbDownImage; shown while dragging."
-        },
+        "thumb": { "$ref": "#/$defs/thumbAssets" },
         "trackTileWidth": {
           "type": "number",
           "minimum": 1,
@@ -1386,15 +1389,7 @@
           "$ref": "#/$defs/skinAssetFile",
           "description": "Optional value fill clipped along the slider axis (WMP foregroundImage). Empty groove may be `track` or baked into the panel."
         },
-        "thumb": { "$ref": "#/$defs/skinAssetFile" },
-        "thumbHover": {
-          "$ref": "#/$defs/skinAssetFile",
-          "description": "WMP thumbHoverImage; shown while hovering."
-        },
-        "thumbPressed": {
-          "$ref": "#/$defs/skinAssetFile",
-          "description": "WMP thumbDownImage; shown while dragging."
-        },
+        "thumb": { "$ref": "#/$defs/thumbAssets" },
         "trackTileWidth": {
           "type": "number",
           "minimum": 1,

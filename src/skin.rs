@@ -731,6 +731,17 @@ pub struct InteractiveAssets {
     pub disabled: Option<String>,
 }
 
+/// Slider thumb sprite set (`default` / `hover` / `pressed`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThumbAssets {
+    pub default: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hover: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pressed: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind")]
 pub enum Presentation {
@@ -792,11 +803,7 @@ pub enum Presentation {
         track: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fill: Option<String>,
-        thumb: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        thumb_hover: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        thumb_pressed: Option<String>,
+        thumb: ThumbAssets,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         track_tile_width: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -814,11 +821,7 @@ pub enum Presentation {
         track: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fill: Option<String>,
-        thumb: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        thumb_hover: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        thumb_pressed: Option<String>,
+        thumb: ThumbAssets,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         track_tile_width: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1133,13 +1136,31 @@ fn validate_lifecycle_effects(effects: Option<&[SkinLifecycleEffect]>, errors: &
     }
 }
 
+fn validate_thumb_assets(
+    thumb: &ThumbAssets,
+    pack_dir: &Path,
+    label: &str,
+    errors: &mut Vec<String>,
+) {
+    validate_skin_asset_file(
+        &thumb.default,
+        pack_dir,
+        &format!("{label}.default"),
+        errors,
+    );
+    if let Some(hover) = &thumb.hover {
+        validate_skin_asset_file(hover, pack_dir, &format!("{label}.hover"), errors);
+    }
+    if let Some(pressed) = &thumb.pressed {
+        validate_skin_asset_file(pressed, pack_dir, &format!("{label}.pressed"), errors);
+    }
+}
+
 fn validate_bitmap_tiled_slider_presentation(
     kind: &str,
     track: Option<&str>,
     fill: Option<&str>,
-    thumb: &str,
-    thumb_hover: Option<&str>,
-    thumb_pressed: Option<&str>,
+    thumb: &ThumbAssets,
     track_tile_width: Option<f64>,
     track_tile_height: Option<f64>,
     track_width: f64,
@@ -1150,13 +1171,7 @@ fn validate_bitmap_tiled_slider_presentation(
     pack_dir: &Path,
     errors: &mut Vec<String>,
 ) {
-    validate_skin_asset_file(thumb, pack_dir, &format!("{kind} thumb"), errors);
-    if let Some(hover) = thumb_hover {
-        validate_skin_asset_file(hover, pack_dir, &format!("{kind} thumbHover"), errors);
-    }
-    if let Some(pressed) = thumb_pressed {
-        validate_skin_asset_file(pressed, pack_dir, &format!("{kind} thumbPressed"), errors);
-    }
+    validate_thumb_assets(thumb, pack_dir, &format!("{kind} thumb"), errors);
     if let Some(fill_path) = fill {
         validate_skin_asset_file(fill_path, pack_dir, &format!("{kind} fill"), errors);
     }
@@ -1372,8 +1387,6 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
             track,
             fill,
             thumb,
-            thumb_hover,
-            thumb_pressed,
             track_tile_width,
             track_tile_height,
             track_width,
@@ -1387,8 +1400,6 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 track.as_deref(),
                 fill.as_deref(),
                 thumb,
-                thumb_hover.as_deref(),
-                thumb_pressed.as_deref(),
                 *track_tile_width,
                 *track_tile_height,
                 *track_width,
@@ -1404,8 +1415,6 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
             track,
             fill,
             thumb,
-            thumb_hover,
-            thumb_pressed,
             track_tile_width,
             track_tile_height,
             track_width,
@@ -1419,8 +1428,6 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 track.as_deref(),
                 fill.as_deref(),
                 thumb,
-                thumb_hover.as_deref(),
-                thumb_pressed.as_deref(),
                 *track_tile_width,
                 *track_tile_height,
                 *track_width,
@@ -2464,6 +2471,91 @@ mod tests {
             sound_when.get("view.shutter.open").map(String::as_str),
             Some("close")
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_nested_slider_thumb_assets() {
+        let (dir, path) = write_skin_json(
+            "nested-thumb",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"volume",
+                      "presentation":{
+                        "kind":"bitmapVerticalSlider",
+                        "thumb":{
+                          "default":"sliders/t.png",
+                          "hover":"sliders/t-h.png",
+                          "pressed":"sliders/t-p.png"
+                        },
+                        "trackWidth":24,
+                        "trackHeight":82,
+                        "thumbWidth":24,
+                        "thumbHeight":21
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Volume(volume) = &canvas.children[0] else {
+            panic!("expected volume");
+        };
+        let Presentation::BitmapVerticalSlider { thumb, .. } = &volume.presentation else {
+            panic!("expected bitmapVerticalSlider");
+        };
+        assert_eq!(thumb.default, "sliders/t.png");
+        assert_eq!(thumb.hover.as_deref(), Some("sliders/t-h.png"));
+        assert_eq!(thumb.pressed.as_deref(), Some("sliders/t-p.png"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_flat_slider_thumb_path() {
+        let (dir, path) = write_skin_json(
+            "flat-thumb",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"volume",
+                      "presentation":{
+                        "kind":"bitmapVerticalSlider",
+                        "thumb":"sliders/t.png",
+                        "trackWidth":24,
+                        "trackHeight":82,
+                        "thumbWidth":24,
+                        "thumbHeight":21
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = read_skin_manifest(&path).unwrap_err();
+        assert!(!err.is_empty(), "expected nested thumb object, got success");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

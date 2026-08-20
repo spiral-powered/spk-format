@@ -21,7 +21,7 @@ pub use skin::{
     ScrollStripFields, ScrollStripItem, ScrollStripPresentation, ScrollStripSlide,
     ScrollStripSlideItem, SkinClickEffect, SkinCondition, SkinLifecycleEffect, SkinView,
     SkinViewStateSpec, SkinViewStateTransition, SkinVisualizer, SlideshowDeck, SlideshowFields,
-    SlideshowPresentation, SubviewFields, TextControlFields, TiledFrameAssets,
+    SlideshowPresentation, SubviewFields, TextControlFields, ThumbAssets, TiledFrameAssets,
     TiledFrameContentInset, TiledFrameExplicitPresentation, TiledFrameFields,
     TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef, TiledFrameTileSize,
     TiledFrameTileSizes, ViewLayout, WindowChrome,
