@@ -1132,7 +1132,6 @@
         { "$ref": "#/$defs/stripSliderPresentation" },
         { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
         { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" },
-        { "$ref": "#/$defs/bitmapSeekbarPresentation" },
         { "$ref": "#/$defs/digitStripPresentation" },
         { "$ref": "#/$defs/framedPanelPresentation" }
       ]
@@ -1332,6 +1331,10 @@
           "$ref": "#/$defs/skinAssetFile",
           "description": "Omitted for thumb-only sliders (groove baked into panel background)."
         },
+        "fill": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "Optional value fill clipped along the slider axis (WMP foregroundImage). Empty groove may be `track` or baked into the panel."
+        },
         "thumb": { "$ref": "#/$defs/skinAssetFile" },
         "thumbHover": {
           "$ref": "#/$defs/skinAssetFile",
@@ -1359,10 +1362,6 @@
           "type": "number",
           "minimum": 0,
           "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
-        },
-        "fillFromBottom": {
-          "type": "boolean",
-          "description": "When true, the track image is a bottom-anchored value fill (WMP foregroundImage) revealed up to the current value; the empty groove is expected in the window background."
         }
       }
     },
@@ -1383,7 +1382,19 @@
           "$ref": "#/$defs/skinAssetFile",
           "description": "Omitted for thumb-only sliders (groove baked into panel background)."
         },
+        "fill": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "Optional value fill clipped along the slider axis (WMP foregroundImage). Empty groove may be `track` or baked into the panel."
+        },
         "thumb": { "$ref": "#/$defs/skinAssetFile" },
+        "thumbHover": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "WMP thumbHoverImage; shown while hovering."
+        },
+        "thumbPressed": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "WMP thumbDownImage; shown while dragging."
+        },
         "trackTileWidth": {
           "type": "number",
           "minimum": 1,
@@ -1403,36 +1414,6 @@
           "minimum": 0,
           "description": "Cap size and thumb travel inset (WMP borderSize); enables 3-slice tiling when > 0"
         }
-      }
-    },
-    "bitmapSeekbarPresentation": {
-      "type": "object",
-      "required": [
-        "kind",
-        "track",
-        "fill",
-        "thumbAssets",
-        "borderSize",
-        "trackWidth",
-        "trackHeight",
-        "thumbWidth",
-        "thumbHeight"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "kind": { "const": "bitmapSeekbar" },
-        "track": { "$ref": "#/$defs/skinAssetFile" },
-        "fill": { "$ref": "#/$defs/skinAssetFile" },
-        "thumbAssets": { "$ref": "#/$defs/interactiveAssets" },
-        "borderSize": {
-          "type": "number",
-          "minimum": 0,
-          "description": "Inset from each track edge for thumb travel (WMP borderSize)"
-        },
-        "trackWidth": { "type": "number", "minimum": 1 },
-        "trackHeight": { "type": "number", "minimum": 1 },
-        "thumbWidth": { "type": "number", "minimum": 1 },
-        "thumbHeight": { "type": "number", "minimum": 1 }
       }
     },
     "digitStripPresentation": {

@@ -786,21 +786,12 @@ pub enum Presentation {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         map_frames: Option<String>,
     },
-    #[serde(rename = "bitmapSeekbar", rename_all = "camelCase")]
-    BitmapSeekbar {
-        track: String,
-        fill: String,
-        thumb_assets: InteractiveAssets,
-        border_size: f64,
-        track_width: f64,
-        track_height: f64,
-        thumb_width: f64,
-        thumb_height: f64,
-    },
     #[serde(rename = "bitmapVerticalSlider", rename_all = "camelCase")]
     BitmapVerticalSlider {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         track: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill: Option<String>,
         thumb: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         thumb_hover: Option<String>,
@@ -816,14 +807,18 @@ pub enum Presentation {
         thumb_height: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         border_size: Option<f64>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        fill_from_bottom: Option<bool>,
     },
     #[serde(rename = "bitmapHorizontalSlider", rename_all = "camelCase")]
     BitmapHorizontalSlider {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         track: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        fill: Option<String>,
         thumb: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumb_hover: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumb_pressed: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         track_tile_width: Option<f64>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1141,6 +1136,7 @@ fn validate_lifecycle_effects(effects: Option<&[SkinLifecycleEffect]>, errors: &
 fn validate_bitmap_tiled_slider_presentation(
     kind: &str,
     track: Option<&str>,
+    fill: Option<&str>,
     thumb: &str,
     thumb_hover: Option<&str>,
     thumb_pressed: Option<&str>,
@@ -1160,6 +1156,9 @@ fn validate_bitmap_tiled_slider_presentation(
     }
     if let Some(pressed) = thumb_pressed {
         validate_skin_asset_file(pressed, pack_dir, &format!("{kind} thumbPressed"), errors);
+    }
+    if let Some(fill_path) = fill {
+        validate_skin_asset_file(fill_path, pack_dir, &format!("{kind} fill"), errors);
     }
     if let Some(track_path) = track {
         validate_skin_asset_file(track_path, pack_dir, &format!("{kind} track"), errors);
@@ -1369,37 +1368,9 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 errors.push("stripSlider frameCount must be at least 2".into());
             }
         }
-        Presentation::BitmapSeekbar {
-            track,
-            fill,
-            thumb_assets,
-            border_size,
-            track_width,
-            track_height,
-            thumb_width,
-            thumb_height,
-            ..
-        } => {
-            validate_skin_asset_file(track, pack_dir, "bitmapSeekbar track", errors);
-            validate_skin_asset_file(fill, pack_dir, "bitmapSeekbar fill", errors);
-            validate_interactive_assets(
-                thumb_assets,
-                pack_dir,
-                "bitmapSeekbar thumbAssets",
-                errors,
-            );
-            if *border_size < 0.0 {
-                errors.push("bitmapSeekbar borderSize must be non-negative".into());
-            }
-            if *track_width <= 0.0 || *track_height <= 0.0 {
-                errors.push("bitmapSeekbar trackWidth and trackHeight must be positive".into());
-            }
-            if *thumb_width <= 0.0 || *thumb_height <= 0.0 {
-                errors.push("bitmapSeekbar thumbWidth and thumbHeight must be positive".into());
-            }
-        }
         Presentation::BitmapVerticalSlider {
             track,
+            fill,
             thumb,
             thumb_hover,
             thumb_pressed,
@@ -1410,11 +1381,11 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
             thumb_width,
             thumb_height,
             border_size,
-            ..
         } => {
             validate_bitmap_tiled_slider_presentation(
                 "bitmapVerticalSlider",
                 track.as_deref(),
+                fill.as_deref(),
                 thumb,
                 thumb_hover.as_deref(),
                 thumb_pressed.as_deref(),
@@ -1431,7 +1402,10 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         }
         Presentation::BitmapHorizontalSlider {
             track,
+            fill,
             thumb,
+            thumb_hover,
+            thumb_pressed,
             track_tile_width,
             track_tile_height,
             track_width,
@@ -1443,9 +1417,10 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
             validate_bitmap_tiled_slider_presentation(
                 "bitmapHorizontalSlider",
                 track.as_deref(),
+                fill.as_deref(),
                 thumb,
-                None,
-                None,
+                thumb_hover.as_deref(),
+                thumb_pressed.as_deref(),
                 *track_tile_width,
                 *track_tile_height,
                 *track_width,
