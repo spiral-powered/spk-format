@@ -1333,6 +1333,10 @@
           "description": "Omitted for thumb-only sliders (groove baked into panel background)."
         },
         "thumb": { "$ref": "#/$defs/skinAssetFile" },
+        "thumbHover": {
+          "$ref": "#/$defs/skinAssetFile",
+          "description": "WMP thumbHoverImage; shown while hovering."
+        },
         "thumbPressed": {
           "$ref": "#/$defs/skinAssetFile",
           "description": "WMP thumbDownImage; shown while dragging."

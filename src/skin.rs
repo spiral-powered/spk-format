@@ -803,6 +803,8 @@ pub enum Presentation {
         track: Option<String>,
         thumb: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        thumb_hover: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         thumb_pressed: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         track_tile_width: Option<f64>,
@@ -1140,6 +1142,7 @@ fn validate_bitmap_tiled_slider_presentation(
     kind: &str,
     track: Option<&str>,
     thumb: &str,
+    thumb_hover: Option<&str>,
     thumb_pressed: Option<&str>,
     track_tile_width: Option<f64>,
     track_tile_height: Option<f64>,
@@ -1152,6 +1155,9 @@ fn validate_bitmap_tiled_slider_presentation(
     errors: &mut Vec<String>,
 ) {
     validate_skin_asset_file(thumb, pack_dir, &format!("{kind} thumb"), errors);
+    if let Some(hover) = thumb_hover {
+        validate_skin_asset_file(hover, pack_dir, &format!("{kind} thumbHover"), errors);
+    }
     if let Some(pressed) = thumb_pressed {
         validate_skin_asset_file(pressed, pack_dir, &format!("{kind} thumbPressed"), errors);
     }
@@ -1395,6 +1401,7 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         Presentation::BitmapVerticalSlider {
             track,
             thumb,
+            thumb_hover,
             thumb_pressed,
             track_tile_width,
             track_tile_height,
@@ -1409,6 +1416,7 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 "bitmapVerticalSlider",
                 track.as_deref(),
                 thumb,
+                thumb_hover.as_deref(),
                 thumb_pressed.as_deref(),
                 *track_tile_width,
                 *track_tile_height,
@@ -1436,6 +1444,7 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 "bitmapHorizontalSlider",
                 track.as_deref(),
                 thumb,
+                None,
                 None,
                 *track_tile_width,
                 *track_tile_height,
