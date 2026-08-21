@@ -189,7 +189,8 @@
             { "type": "boolean" }
           ],
           "description": "New value for the variable."
-        }
+        },
+        "transition": { "$ref": "#/$defs/layoutTransition" }
       }
     },
     "skinClickEffect": {
@@ -302,6 +303,7 @@
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
         "animations": { "type": "object" },
+        "transition": { "$ref": "#/$defs/layoutTransition" },
         "dragRegion": {
           "type": "boolean",
           "description": "When true, pointer events on this container move the skin window."
@@ -336,6 +338,7 @@
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -372,6 +375,7 @@
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -505,7 +509,26 @@
           "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-        "animations": { "type": "object" }
+        "animations": { "type": "object" },
+        "transition": { "$ref": "#/$defs/layoutTransition" }
+      }
+    },
+    "layoutTransition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["durationMs"],
+      "description": "Host-driven interpolation when resolved bounds (or later, a view-state change) retarget. Omit the object, or set durationMs to 0, to snap. Same shape on layout nodes and view.state branches. Today's CSS path reads the node field; duration on a state-event branch is reserved for the host interpolator.",
+      "properties": {
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Interpolation duration in milliseconds. 0 snaps. Omitting `transition` is the same as 0."
+        },
+        "easing": {
+          "type": "string",
+          "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"],
+          "description": "CSS timing function. Default linear."
+        }
       }
     },
     "layoutBoundsPartial": {
@@ -549,6 +572,7 @@
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -581,6 +605,7 @@
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "passthrough": {
               "type": "boolean",
               "description": "When true, the group bounds box does not capture pointer events (children still do)."
@@ -616,7 +641,8 @@
               "description": "When true on a canvas view, marks a window drag handle"
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -640,7 +666,8 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -837,6 +864,7 @@
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" },
             "objectFit": {
               "type": "string",
               "enum": ["cover", "contain", "fill"],
@@ -872,7 +900,8 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -933,7 +962,8 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -953,7 +983,8 @@
             "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -973,7 +1004,8 @@
             "presentation": { "$ref": "#/$defs/slideshowPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -1024,7 +1056,8 @@
             "presentation": { "$ref": "#/$defs/scrollStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -1115,7 +1148,8 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
@@ -1150,7 +1184,8 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
           }
         }
       ]
