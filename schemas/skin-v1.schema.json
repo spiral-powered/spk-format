@@ -836,7 +836,12 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" }
+            "animations": { "type": "object" },
+            "objectFit": {
+              "type": "string",
+              "enum": ["cover", "contain", "fill"],
+              "description": "Artwork only: CSS object-fit for the cover image. Default cover. Invalid on other control types."
+            }
           }
         }
       ]
@@ -891,6 +896,18 @@
             "currentRowStyle": {
               "$ref": "#/$defs/nodeStyle",
               "description": "Panel-writable paint for the current track row. Host applies it as inline style on __row--current. When the row is also playing, playingRowStyle is merged on top."
+            },
+            "sourceStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for the source dropdown. Host applies it as inline style on __source."
+            },
+            "sourceHoverStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for the source dropdown while hovered. Host merges on top of sourceStyle."
+            },
+            "rowHoverStyle": {
+              "$ref": "#/$defs/nodeStyle",
+              "description": "Panel-writable paint for a track row while hovered. Host merges under currentRowStyle / playingRowStyle when those also apply."
             },
             "type": { "const": "playlist" },
             "showDropdown": {
@@ -1088,7 +1105,8 @@
             "presentation": {
               "oneOf": [
                 { "$ref": "#/$defs/stripSliderPresentation" },
-                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" }
+                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+                { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
               ]
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
@@ -1189,7 +1207,7 @@
           "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["mappingColor", "onClick"],
+            "required": ["mappingColor"],
             "additionalProperties": false,
             "properties": {
               "mappingColor": {
@@ -1199,7 +1217,7 @@
               "onClick": {
                 "type": "array",
                 "minItems": 1,
-                "description": "Ordered click effects. Omit sound here; use element sound / soundWhen.",
+                "description": "Ordered click effects. Omit for unmapped WMS hits; use element sound / soundWhen, not effect-level sound.",
                 "items": { "$ref": "#/$defs/skinClickEffect" }
               },
               "activeWhen": {

@@ -542,6 +542,7 @@ pub struct TiledFrameFields {
 #[serde(rename_all = "camelCase")]
 pub struct ButtonGroupElement {
     pub mapping_color: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub on_click: Vec<SkinClickEffect>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub active_when: Option<SkinCondition>,
@@ -686,6 +687,9 @@ pub struct ControlFields {
     pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
+    /// Artwork only: CSS `object-fit`. Validated in `validate_layout_node`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub object_fit: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -884,6 +888,12 @@ pub struct PlaylistFields {
     pub playing_row_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_row_style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_hover_style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub row_hover_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_dropdown: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1507,9 +1517,6 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
                 errors.push("buttonGroup elements must not be empty".into());
             }
             for element in elements {
-                if element.on_click.is_empty() {
-                    errors.push("buttonGroup element onClick must not be empty".into());
-                }
                 validate_click_effects(Some(&element.on_click), errors);
                 validate_condition(element.active_when.as_ref(), "activeWhen", errors);
                 validate_condition(element.enabled_when.as_ref(), "enabledWhen", errors);
@@ -1612,6 +1619,18 @@ fn validate_bounds(bounds: &LayoutBounds, field: &str, errors: &mut Vec<String>)
     }
 }
 
+fn validate_control_fields(f: &ControlFields, pack_dir: &Path, errors: &mut Vec<String>) {
+    validate_click_effects(f.on_click.as_deref(), errors);
+    validate_bind(f.bind.as_deref(), "bind", errors);
+    validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
+    validate_condition(f.active_when.as_ref(), "activeWhen", errors);
+    validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+    if let Some(bounds) = &f.bounds {
+        validate_bounds(bounds, "bounds", errors);
+    }
+    validate_presentation(&f.presentation, pack_dir, errors);
+}
+
 fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<String>) {
     validate_node_style(view_layout_style(layout), "style", errors);
     match layout {
@@ -1662,27 +1681,34 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             }
             validate_presentation(&f.presentation, pack_dir, errors);
         }
+        LayoutNode::Artwork(f) => {
+            validate_control_fields(f, pack_dir, errors);
+            if let Some(fit) = f.object_fit.as_deref() {
+                if !matches!(fit, "cover" | "contain" | "fill") {
+                    errors.push(format!(
+                        "artwork objectFit \"{fit}\" must be cover, contain, or fill"
+                    ));
+                }
+            }
+        }
         LayoutNode::Button(f)
         | LayoutNode::Seekbar(f)
-        | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Volume(f)
         | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => {
-            validate_click_effects(f.on_click.as_deref(), errors);
-            validate_bind(f.bind.as_deref(), "bind", errors);
-            validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
-            validate_condition(f.active_when.as_ref(), "activeWhen", errors);
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
-            if let Some(bounds) = &f.bounds {
-                validate_bounds(bounds, "bounds", errors);
+            validate_control_fields(f, pack_dir, errors);
+            if f.object_fit.is_some() {
+                errors.push("objectFit is only valid on artwork nodes".into());
             }
-            validate_presentation(&f.presentation, pack_dir, errors);
         }
         LayoutNode::Playlist(f) => {
             validate_node_style(f.playing_row_style.as_ref(), "playingRowStyle", errors);
             validate_node_style(f.current_row_style.as_ref(), "currentRowStyle", errors);
+            validate_node_style(f.source_style.as_ref(), "sourceStyle", errors);
+            validate_node_style(f.source_hover_style.as_ref(), "sourceHoverStyle", errors);
+            validate_node_style(f.row_hover_style.as_ref(), "rowHoverStyle", errors);
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
@@ -1702,14 +1728,10 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                     f.band
                 ));
             }
-            validate_click_effects(f.control.on_click.as_deref(), errors);
-            validate_bind(f.control.bind.as_deref(), "bind", errors);
-            validate_condition(f.control.enabled_when.as_ref(), "enabledWhen", errors);
-            validate_condition(f.control.visible_when.as_ref(), "visibleWhen", errors);
-            if let Some(bounds) = &f.control.bounds {
-                validate_bounds(bounds, "bounds", errors);
+            validate_control_fields(&f.control, pack_dir, errors);
+            if f.control.object_fit.is_some() {
+                errors.push("objectFit is only valid on artwork nodes".into());
             }
-            validate_presentation(&f.control.presentation, pack_dir, errors);
         }
         LayoutNode::ButtonGroup(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
@@ -2423,6 +2445,99 @@ mod tests {
     }
 
     #[test]
+    fn accepts_playlist_source_and_row_hover_styles() {
+        let (dir, path) = write_skin_json(
+            "playlist-source-hover-styles",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"playlist",
+                      "id":"pl-list",
+                      "sourceStyle":{"backgroundColor":"#0a1200"},
+                      "sourceHoverStyle":{"backgroundColor":"#142000"},
+                      "rowHoverStyle":{"backgroundColor":"rgba(204,255,0,0.12)"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_artwork_object_fit() {
+        let (dir, path) = write_skin_json(
+            "artwork-object-fit",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"artwork",
+                      "id":"art",
+                      "objectFit":"contain",
+                      "style":{"backgroundColor":"#000000"},
+                      "presentation":{"kind":"css","className":"skin-artwork"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_object_fit_on_non_artwork() {
+        let (dir, path) = write_skin_json(
+            "object-fit-on-button",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"button",
+                      "objectFit":"contain",
+                      "presentation":{"kind":"primitive"},
+                      "onClick":[{"action":"player.playPause"}]
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("objectFit"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn preserves_button_sound_when() {
         let (dir, path) = write_skin_json(
             "sound-when",
@@ -2471,6 +2586,101 @@ mod tests {
             sound_when.get("view.shutter.open").map(String::as_str),
             Some("close")
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_button_group_element_without_onclick() {
+        let (dir, path) = write_skin_json(
+            "bg-no-click",
+            r##"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[{
+                      "type":"buttonGroup",
+                      "presentation":{
+                        "kind":"buttonGroup",
+                        "assets":{"default":"g.png"},
+                        "positionMap":"g-map.png",
+                        "width":10,
+                        "height":10,
+                        "elements":[{"mappingColor":"#3366ff","tooltip":"Open audio controls"}]
+                      }
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::ButtonGroup(group) = &canvas.children[0] else {
+            panic!("expected buttonGroup");
+        };
+        let Presentation::ButtonGroup { elements, .. } = &group.presentation else {
+            panic!("expected buttonGroup presentation");
+        };
+        assert!(elements[0].on_click.is_empty());
+        assert_eq!(
+            elements[0].tooltip.as_deref(),
+            Some("Open audio controls")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_horizontal_eq_band() {
+        let (dir, path) = write_skin_json(
+            "eq-horizontal",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"eqBand",
+                      "band":1,
+                      "presentation":{
+                        "kind":"bitmapHorizontalSlider",
+                        "thumb":{"default":"sliders/t.png"},
+                        "trackWidth":120,
+                        "trackHeight":20,
+                        "thumbWidth":12,
+                        "thumbHeight":20,
+                        "borderSize":10
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::EqBand(eq) = &canvas.children[0] else {
+            panic!("expected eqBand");
+        };
+        assert_eq!(eq.band, 1);
+        assert!(matches!(
+            eq.control.presentation,
+            Presentation::BitmapHorizontalSlider { .. }
+        ));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
