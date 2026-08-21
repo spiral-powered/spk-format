@@ -59,11 +59,11 @@
     },
     "animations": {
       "type": "object",
-      "description": "Reserved for declarative timelines (#17)."
+      "description": "Reserved for host-driven motion. Not free-form JS."
     },
     "timelines": {
       "type": "object",
-      "description": "Reserved for declarative timelines (#17)."
+      "description": "Reserved for host-driven motion. Not free-form JS."
     },
     "stylesheet": {
       "type": "string",
@@ -1091,6 +1091,10 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "eqBand" },
             "band": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "spread": {
+              "const": "linear",
+              "description": "This slider is a control point of a linear tilt across the 10-band EQ. All eqBand nodes with spread:linear in the skin form the endpoints (Plus! Nature bass/treble). Dragging one interpolates unoccupied bands between those endpoints."
+            },
             "bind": { "type": "string" },
             "enabledWhen": { "$ref": "#/$defs/skinCondition" },
             "tooltip": {

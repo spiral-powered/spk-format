@@ -696,6 +696,10 @@ pub struct ControlFields {
 #[serde(rename_all = "camelCase")]
 pub struct EqBandFields {
     pub band: u8,
+    /// Linear tilt control point. All `spread: "linear"` eqBand nodes in the
+    /// skin are endpoints; dragging one interpolates the other bands.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spread: Option<String>,
     #[serde(flatten)]
     pub control: ControlFields,
 }
@@ -1728,6 +1732,11 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                     f.band
                 ));
             }
+            if let Some(spread) = &f.spread {
+                if spread != "linear" {
+                    errors.push(format!("eqBand spread must be \"linear\", got {spread}"));
+                }
+            }
             validate_control_fields(&f.control, pack_dir, errors);
             if f.control.object_fit.is_some() {
                 errors.push("objectFit is only valid on artwork nodes".into());
@@ -2530,10 +2539,7 @@ mod tests {
             }"##,
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
-        assert!(
-            err.contains("objectFit"),
-            "unexpected error: {err}"
-        );
+        assert!(err.contains("objectFit"), "unexpected error: {err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2630,10 +2636,7 @@ mod tests {
             panic!("expected buttonGroup presentation");
         };
         assert!(elements[0].on_click.is_empty());
-        assert_eq!(
-            elements[0].tooltip.as_deref(),
-            Some("Open audio controls")
-        );
+        assert_eq!(elements[0].tooltip.as_deref(), Some("Open audio controls"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2677,10 +2680,55 @@ mod tests {
             panic!("expected eqBand");
         };
         assert_eq!(eq.band, 1);
+        assert!(eq.spread.is_none());
         assert!(matches!(
             eq.control.presentation,
             Presentation::BitmapHorizontalSlider { .. }
         ));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_eq_band_linear_spread() {
+        let (dir, path) = write_skin_json(
+            "eq-spread",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"eqBand",
+                      "band":1,
+                      "spread":"linear",
+                      "presentation":{
+                        "kind":"bitmapHorizontalSlider",
+                        "thumb":{"default":"sliders/t.png"},
+                        "trackWidth":120,
+                        "trackHeight":20,
+                        "thumbWidth":12,
+                        "thumbHeight":20,
+                        "borderSize":10
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::EqBand(eq) = &canvas.children[0] else {
+            panic!("expected eqBand");
+        };
+        assert_eq!(eq.spread.as_deref(), Some("linear"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
