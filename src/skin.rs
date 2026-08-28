@@ -135,6 +135,7 @@ pub struct SkinManifest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum SkinCondition {
+    Bool(bool),
     Leaf(String),
     All { all: Vec<SkinCondition> },
     Any { any: Vec<SkinCondition> },
@@ -144,6 +145,7 @@ pub enum SkinCondition {
 impl SkinCondition {
     pub fn validate_leaves(&self, field: &str, errors: &mut Vec<String>) {
         match self {
+            SkinCondition::Bool(_) => {}
             SkinCondition::Leaf(path) => validate_bind(Some(path.as_str()), field, errors),
             SkinCondition::All { all } => {
                 for child in all {
@@ -350,6 +352,8 @@ pub enum LayoutNode {
     Visualizer(ControlFields),
     #[serde(rename = "volume")]
     Volume(ControlFields),
+    #[serde(rename = "slider")]
+    Slider(ControlFields),
     #[serde(rename = "balance")]
     Balance(ControlFields),
     #[serde(rename = "eqBand")]
@@ -1615,6 +1619,7 @@ fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Volume(f)
+        | LayoutNode::Slider(f)
         | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => f.style.as_ref(),
         LayoutNode::EqBand(f) => f.control.style.as_ref(),
@@ -1640,6 +1645,7 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Volume(f)
+        | LayoutNode::Slider(f)
         | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => f.transition.as_ref(),
         LayoutNode::EqBand(f) => f.control.transition.as_ref(),
@@ -1742,6 +1748,7 @@ fn layout_node_id(node: &LayoutNode) -> Option<&str> {
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Volume(f)
+        | LayoutNode::Slider(f)
         | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => f.id.as_deref(),
         LayoutNode::EqBand(f) => f.control.id.as_deref(),
@@ -1850,6 +1857,7 @@ fn validate_layout_node(
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
         | LayoutNode::Volume(f)
+        | LayoutNode::Slider(f)
         | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => {
             validate_control_fields(f, pack_dir, errors);
@@ -2945,6 +2953,53 @@ mod tests {
         assert_eq!(thumb.default, "sliders/t.png");
         assert_eq!(thumb.hover.as_deref(), Some("sliders/t-h.png"));
         assert_eq!(thumb.pressed.as_deref(), Some("sliders/t-p.png"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_slider_with_literal_false_enabled_when() {
+        let (dir, path) = write_skin_json(
+            "generic-slider",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "id":"truBass",
+                      "type":"slider",
+                      "enabledWhen":false,
+                      "presentation":{
+                        "kind":"bitmapHorizontalSlider",
+                        "thumb":{"default":"sliders/t.png"},
+                        "trackWidth":86,
+                        "trackHeight":7,
+                        "thumbWidth":7,
+                        "thumbHeight":7,
+                        "borderSize":4
+                      }
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
+        };
+        assert!(matches!(
+            slider.enabled_when,
+            Some(SkinCondition::Bool(false))
+        ));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

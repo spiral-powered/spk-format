@@ -423,8 +423,9 @@
       ]
     },
     "skinCondition": {
-      "description": "Boolean composition of skin bind paths (leaf string or all/any/not).",
+      "description": "Boolean composition of skin bind paths (literal boolean, leaf string, or all/any/not).",
       "oneOf": [
+        { "type": "boolean" },
         { "type": "string", "minLength": 1 },
         {
           "type": "object",
@@ -820,6 +821,7 @@
                 "transport",
                 "visualizer",
                 "volume",
+                "slider",
                 "time"
               ]
             },
