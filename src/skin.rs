@@ -1704,6 +1704,65 @@ fn validate_bounds(bounds: &LayoutBounds, field: &str, errors: &mut Vec<String>)
     }
 }
 
+fn layout_where(view_name: &str, node_id: Option<&str>) -> String {
+    match node_id.map(str::trim).filter(|id| !id.is_empty()) {
+        Some(id) => format!("{view_name}/{id}"),
+        None => view_name.to_string(),
+    }
+}
+
+fn prefix_from(errors: &mut Vec<String>, start: usize, prefix: &str) {
+    for err in errors.iter_mut().skip(start) {
+        *err = format!("{prefix}: {err}");
+    }
+}
+
+fn view_layout_id(layout: &ViewLayout) -> Option<&str> {
+    match layout {
+        ViewLayout::Canvas(f) => f.id.as_deref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.id.as_deref(),
+    }
+}
+
+fn view_layout_children(layout: &ViewLayout) -> &[LayoutNode] {
+    match layout {
+        ViewLayout::Canvas(f) => &f.children,
+        ViewLayout::Row(f) | ViewLayout::Column(f) => &f.children,
+    }
+}
+
+fn layout_node_id(node: &LayoutNode) -> Option<&str> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.id.as_deref(),
+        LayoutNode::Subview(f) => f.id.as_deref(),
+        LayoutNode::Decoration(f) => f.id.as_deref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Seekbar(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Volume(f)
+        | LayoutNode::Balance(f)
+        | LayoutNode::Time(f) => f.id.as_deref(),
+        LayoutNode::EqBand(f) => f.control.id.as_deref(),
+        LayoutNode::ButtonGroup(f) => f.id.as_deref(),
+        LayoutNode::Text(f) => f.id.as_deref(),
+        LayoutNode::Playlist(f) => f.id.as_deref(),
+        LayoutNode::TiledFrame(f) => f.id.as_deref(),
+        LayoutNode::Slideshow(f) => f.id.as_deref(),
+        LayoutNode::ScrollStrip(f) => f.id.as_deref(),
+    }
+}
+
+fn layout_node_children(node: &LayoutNode) -> &[LayoutNode] {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => &f.children,
+        LayoutNode::Subview(f) => &f.children,
+        LayoutNode::TiledFrame(f) => &f.children,
+        _ => &[],
+    }
+}
+
 fn validate_control_fields(f: &ControlFields, pack_dir: &Path, errors: &mut Vec<String>) {
     validate_click_effects(f.on_click.as_deref(), errors);
     validate_bind(f.bind.as_deref(), "bind", errors);
@@ -1716,7 +1775,13 @@ fn validate_control_fields(f: &ControlFields, pack_dir: &Path, errors: &mut Vec<
     validate_presentation(&f.presentation, pack_dir, errors);
 }
 
-fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_view_layout(
+    layout: &ViewLayout,
+    pack_dir: &Path,
+    view_name: &str,
+    errors: &mut Vec<String>,
+) {
+    let start = errors.len();
     validate_node_style(view_layout_style(layout), "style", errors);
     validate_layout_transition(view_layout_transition(layout), errors);
     match layout {
@@ -1725,23 +1790,31 @@ fn validate_view_layout(layout: &ViewLayout, pack_dir: &Path, errors: &mut Vec<S
                 errors.push("canvas root width and height must be at least 1".into());
             }
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
         }
         ViewLayout::Row(f) | ViewLayout::Column(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
         }
+    }
+    prefix_from(
+        errors,
+        start,
+        &layout_where(view_name, view_layout_id(layout)),
+    );
+    for child in view_layout_children(layout) {
+        validate_layout_node(child, pack_dir, view_name, errors);
     }
 }
 
-fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_layout_node(
+    node: &LayoutNode,
+    pack_dir: &Path,
+    view_name: &str,
+    errors: &mut Vec<String>,
+) {
+    let start = errors.len();
     validate_node_style(layout_node_style(node), "style", errors);
     validate_layout_transition(layout_node_transition(node), errors);
     match node {
@@ -1750,16 +1823,10 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
         }
         LayoutNode::Subview(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
             validate_bounds(&f.bounds, "bounds", errors);
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
         }
         LayoutNode::Decoration(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
@@ -1853,9 +1920,6 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_tiled_frame_presentation(&f.presentation, pack_dir, errors);
-            for child in &f.children {
-                validate_layout_node(child, pack_dir, errors);
-            }
         }
         LayoutNode::Slideshow(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
@@ -1904,6 +1968,14 @@ fn validate_layout_node(node: &LayoutNode, pack_dir: &Path, errors: &mut Vec<Str
                 );
             }
         }
+    }
+    prefix_from(
+        errors,
+        start,
+        &layout_where(view_name, layout_node_id(node)),
+    );
+    for child in layout_node_children(node) {
+        validate_layout_node(child, pack_dir, view_name, errors);
     }
 }
 
@@ -1983,7 +2055,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 }
             }
         }
-        validate_view_layout(&view.layout, pack_dir, &mut errors);
+        validate_view_layout(&view.layout, pack_dir, view_name, &mut errors);
     }
 
     let primary_count = manifest
@@ -3154,6 +3226,72 @@ mod tests {
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(err.contains("exactly one"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn layout_errors_include_view_and_node_id() {
+        let (dir, path) = write_skin_json(
+            "named-bounds",
+            r#"{
+              "name":"Lost Planet",
+              "author":"a",
+              "description":"",
+              "views":{
+                "plview":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":376,
+                    "height":216,
+                    "children":[{
+                      "type":"subview",
+                      "id":"botRight",
+                      "bounds":{"right":0,"bottom":0},
+                      "children":[]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("plview/botRight: bounds: set w, or both x and right"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn asset_errors_include_view_and_node_id() {
+        let (dir, path) = write_skin_json(
+            "named-asset",
+            r#"{
+              "name":"Lost Planet",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"decoration",
+                      "id":"deco",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "presentation":{"kind":"bitmap","assets":{"default":"missing.png"}}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("main/deco: bitmap assets.default asset not found"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
