@@ -970,6 +970,8 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub row_hover_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub items: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_dropdown: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub show_duration: Option<bool>,
@@ -2018,6 +2020,13 @@ fn validate_layout_node(
                     ));
                 }
             }
+            if let Some(items) = &f.items {
+                if items != "tracks" && items != "sources" {
+                    errors.push(format!(
+                        "playlist items \"{items}\" must be tracks or sources"
+                    ));
+                }
+            }
         }
         LayoutNode::Slider(f) => {
             validate_slider_fields(f, pack_dir, errors);
@@ -2280,6 +2289,65 @@ mod tests {
             }"#,
         );
         validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_playlist_items_sources() {
+        let (dir, path) = write_skin_json(
+            "playlist-items-sources",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[
+                      {
+                        "type":"playlist",
+                        "items":"sources",
+                        "showDropdown":false
+                      }
+                    ]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_playlist_items() {
+        let (dir, path) = write_skin_json(
+            "playlist-bad-items",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[
+                      {
+                        "type":"playlist",
+                        "items":"albums"
+                      }
+                    ]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("items") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

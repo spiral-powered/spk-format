@@ -963,6 +963,11 @@
               "description": "Panel-writable paint for a track row while hovered. Host merges under currentRowStyle / playingRowStyle when those also apply."
             },
             "type": { "const": "playlist" },
+            "items": {
+              "type": "string",
+              "enum": ["tracks", "sources"],
+              "description": "List contents. Default tracks. sources renders All tracks / Up Next / user playlists as rows (WMP listbox) and hides the track list and source dropdown."
+            },
             "showDropdown": {
               "type": "boolean",
               "description": "Show source dropdown (All tracks, Up Next, user playlists). Default true."
