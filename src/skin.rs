@@ -244,6 +244,8 @@ pub struct CanvasFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub width: u32,
     pub height: u32,
     pub children: Vec<LayoutNode>,
@@ -281,6 +283,7 @@ pub struct LayoutTransition {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub easing: Option<String>,
 }
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -321,6 +324,8 @@ pub struct NodeStyle {
     pub text_align: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -371,6 +376,8 @@ pub struct ContainerFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
@@ -397,6 +404,8 @@ pub struct SubviewFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub bounds: LayoutBounds,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -420,6 +429,8 @@ pub struct DecorationFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -546,6 +557,8 @@ pub struct TiledFrameFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub presentation: TiledFramePresentation,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -585,6 +598,8 @@ pub struct ButtonGroupFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -622,6 +637,8 @@ pub struct SlideshowFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub presentation: SlideshowPresentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -671,6 +688,8 @@ pub struct ScrollStripFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     pub presentation: ScrollStripPresentation,
     pub bounds: LayoutBounds,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -688,6 +707,8 @@ pub struct ControlFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_click: Option<Vec<SkinClickEffect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -754,6 +775,8 @@ pub struct TextControlFields {
     pub class_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -932,6 +955,8 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playing_row_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub current_row_style: Option<NodeStyle>,
@@ -1042,11 +1067,22 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
                 return;
             }
         }
-        if is_known_view_bind(p) || is_known_slideshow_bind(p) || is_known_scroll_strip_bind(p) {
+        if is_known_view_bind(p)
+            || is_known_slideshow_bind(p)
+            || is_known_scroll_strip_bind(p)
+            || is_known_hover_bind(p)
+        {
             return;
         }
         errors.push(format!("{field} references unknown bind path \"{p}\"."));
     }
+}
+
+fn is_known_hover_bind(path: &str) -> bool {
+    let Some(id) = path.strip_prefix("hover.") else {
+        return false;
+    };
+    !id.is_empty() && !id.contains('.')
 }
 
 fn is_known_view_bind(path: &str) -> bool {
@@ -1606,12 +1642,24 @@ fn validate_node_style(style: Option<&NodeStyle>, field: &str, errors: &mut Vec<
             ));
         }
     }
+    if let Some(opacity) = style.opacity {
+        if !(0.0..=1.0).contains(&opacity) {
+            errors.push(format!("{field}.opacity must be between 0 and 1"));
+        }
+    }
 }
 
 fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
     match layout {
         ViewLayout::Canvas(f) => f.style.as_ref(),
         ViewLayout::Row(f) | ViewLayout::Column(f) => f.style.as_ref(),
+    }
+}
+
+fn view_layout_style_when(layout: &ViewLayout) -> Option<&HashMap<String, NodeStyle>> {
+    match layout {
+        ViewLayout::Canvas(f) => f.style_when.as_ref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.style_when.as_ref(),
     }
 }
 
@@ -1657,6 +1705,26 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
     }
 }
 
+fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyle>> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.style_when.as_ref(),
+        LayoutNode::Subview(f) => f.style_when.as_ref(),
+        LayoutNode::Decoration(f) => f.style_when.as_ref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Time(f) => f.style_when.as_ref(),
+        LayoutNode::Slider(f) => f.base.style_when.as_ref(),
+        LayoutNode::ButtonGroup(f) => f.style_when.as_ref(),
+        LayoutNode::Text(f) => f.style_when.as_ref(),
+        LayoutNode::Playlist(f) => f.style_when.as_ref(),
+        LayoutNode::TiledFrame(f) => f.style_when.as_ref(),
+        LayoutNode::Slideshow(f) => f.style_when.as_ref(),
+        LayoutNode::ScrollStrip(f) => f.style_when.as_ref(),
+    }
+}
+
 fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
     match layout {
         ViewLayout::Canvas(f) => f.transition.as_ref(),
@@ -1665,6 +1733,19 @@ fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
 }
 
 const LAYOUT_EASINGS: &[&str] = &["linear", "ease", "ease-in", "ease-out", "ease-in-out"];
+
+fn validate_style_when(
+    when: Option<&HashMap<String, NodeStyle>>,
+    errors: &mut Vec<String>,
+) {
+    let Some(when) = when else {
+        return;
+    };
+    for (path, style) in when {
+        validate_bind(Some(path.as_str()), "styleWhen", errors);
+        validate_node_style(Some(style), &format!("styleWhen.{path}"), errors);
+    }
+}
 
 fn validate_layout_transition(transition: Option<&LayoutTransition>, errors: &mut Vec<String>) {
     let Some(transition) = transition else {
@@ -1839,6 +1920,7 @@ fn validate_view_layout(
 ) {
     let start = errors.len();
     validate_node_style(view_layout_style(layout), "style", errors);
+    validate_style_when(view_layout_style_when(layout), errors);
     validate_layout_transition(view_layout_transition(layout), errors);
     match layout {
         ViewLayout::Canvas(f) => {
@@ -1872,6 +1954,7 @@ fn validate_layout_node(
 ) {
     let start = errors.len();
     validate_node_style(layout_node_style(node), "style", errors);
+    validate_style_when(layout_node_style_when(node), errors);
     validate_layout_transition(layout_node_transition(node), errors);
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
@@ -2678,6 +2761,43 @@ mod tests {
                       "sourceStyle":{"backgroundColor":"#0a1200"},
                       "sourceHoverStyle":{"backgroundColor":"#142000"},
                       "rowHoverStyle":{"backgroundColor":"rgba(204,255,0,0.12)"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_hover_bind_and_style_when() {
+        let (dir, path) = write_skin_json(
+            "hover-style-when",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"subview",
+                      "id":"visFrame",
+                      "bounds":{"x":0,"y":0,"w":100,"h":80},
+                      "children":[{
+                        "type":"subview",
+                        "id":"visMeta",
+                        "bounds":{"x":0,"y":0,"w":100,"h":20},
+                        "style":{"opacity":0},
+                        "styleWhen":{"hover.visFrame":{"opacity":1}},
+                        "transition":{"durationMs":200,"easing":"ease-out"},
+                        "children":[]
+                      }]
                     }]
                   }
                 }

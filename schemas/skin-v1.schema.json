@@ -302,6 +302,7 @@
           "items": { "$ref": "#/$defs/layoutNode" }
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+        "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
         "transition": { "$ref": "#/$defs/layoutTransition" },
         "dragRegion": {
@@ -337,6 +338,7 @@
             "position": { "type": "string", "enum": ["relative", "absolute"] },
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
@@ -374,6 +376,7 @@
             "position": { "type": "string", "enum": ["relative", "absolute"] },
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
@@ -494,6 +497,12 @@
           "type": "string",
           "minLength": 1,
           "description": "CSS color for the node fill."
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Opacity 0–1. Interpolates with node transition when styleWhen retargets it."
         }
       }
     },
@@ -513,9 +522,15 @@
           "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
         },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+        "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
         "transition": { "$ref": "#/$defs/layoutTransition" }
       }
+    },
+    "styleWhen": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/nodeStyle" },
+      "description": "Bind path → style overlay when truthy (last match wins, shallow merge onto style). Typical key: hover.{nodeId}."
     },
     "layoutTransition": {
       "type": "object",
@@ -575,6 +590,7 @@
             "position": { "type": "string", "enum": ["relative", "absolute"] },
             "zIndex": { "type": "integer" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
             "dragRegion": {
@@ -608,6 +624,7 @@
               "items": { "$ref": "#/$defs/layoutNode" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
             "passthrough": {
@@ -645,6 +662,7 @@
               "description": "When true on a canvas view, marks a window drag handle"
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -670,6 +688,7 @@
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -865,6 +884,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
             "objectFit": {
@@ -902,6 +922,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -964,6 +985,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -985,6 +1007,7 @@
             "presentation": { "$ref": "#/$defs/buttonGroupPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1006,6 +1029,7 @@
             "presentation": { "$ref": "#/$defs/slideshowPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1058,6 +1082,7 @@
             "presentation": { "$ref": "#/$defs/scrollStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1159,6 +1184,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1197,6 +1223,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1235,6 +1262,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1273,6 +1301,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
@@ -1316,6 +1345,7 @@
               "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
             },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }
           }
