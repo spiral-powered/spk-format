@@ -841,7 +841,8 @@
                 "artwork",
                 "transport",
                 "visualizer",
-                "time"
+                "time",
+                "rating"
               ]
             },
             "onClick": {

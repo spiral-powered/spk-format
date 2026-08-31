@@ -66,6 +66,7 @@ const KNOWN_BINDS: &[&str] = &[
     "track.album",
     "track.artUrl",
     "track.durationSeconds",
+    "track.rating",
     "player.isPlaying",
     "player.notPlaying",
     "player.playbackState",
@@ -353,6 +354,8 @@ pub enum LayoutNode {
     Transport(ControlFields),
     #[serde(rename = "visualizer")]
     Visualizer(ControlFields),
+    #[serde(rename = "rating")]
+    Rating(ControlFields),
     #[serde(rename = "slider")]
     Slider(SliderFields),
     #[serde(rename = "time")]
@@ -1672,6 +1675,7 @@ fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.style.as_ref(),
         LayoutNode::Slider(f) => f.base.style.as_ref(),
         LayoutNode::ButtonGroup(f) => f.style.as_ref(),
@@ -1694,6 +1698,7 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.transition.as_ref(),
         LayoutNode::Slider(f) => f.base.transition.as_ref(),
         LayoutNode::ButtonGroup(f) => f.transition.as_ref(),
@@ -1714,6 +1719,7 @@ fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyl
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.style_when.as_ref(),
         LayoutNode::Slider(f) => f.base.style_when.as_ref(),
         LayoutNode::ButtonGroup(f) => f.style_when.as_ref(),
@@ -1826,6 +1832,7 @@ fn layout_node_id(node: &LayoutNode) -> Option<&str> {
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => f.id.as_deref(),
         LayoutNode::Slider(f) => f.base.id.as_deref(),
         LayoutNode::ButtonGroup(f) => f.id.as_deref(),
@@ -1987,6 +1994,7 @@ fn validate_layout_node(
         LayoutNode::Button(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => {
             validate_control_fields(f, pack_dir, errors);
             if f.object_fit.is_some() {
@@ -2828,6 +2836,36 @@ mod tests {
                       "objectFit":"contain",
                       "style":{"backgroundColor":"#000000"},
                       "presentation":{"kind":"css","className":"skin-artwork"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_rating_primitive() {
+        let (dir, path) = write_skin_json(
+            "rating-primitive",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"rating",
+                      "id":"visRatingStars",
+                      "style":{"color":"#F5A623"},
+                      "enabledWhen":"player.hasTrack",
+                      "presentation":{"kind":"primitive"}
                     }]
                   }
                 }
