@@ -340,8 +340,6 @@ pub enum LayoutNode {
     Button(ControlFields),
     #[serde(rename = "buttonGroup")]
     ButtonGroup(ButtonGroupFields),
-    #[serde(rename = "seekbar")]
-    Seekbar(ControlFields),
     #[serde(rename = "text")]
     Text(TextControlFields),
     #[serde(rename = "artwork")]
@@ -350,14 +348,8 @@ pub enum LayoutNode {
     Transport(ControlFields),
     #[serde(rename = "visualizer")]
     Visualizer(ControlFields),
-    #[serde(rename = "volume")]
-    Volume(ControlFields),
     #[serde(rename = "slider")]
-    Slider(ControlFields),
-    #[serde(rename = "balance")]
-    Balance(ControlFields),
-    #[serde(rename = "eqBand")]
-    EqBand(EqBandFields),
+    Slider(SliderFields),
     #[serde(rename = "time")]
     Time(ControlFields),
     #[serde(rename = "playlist")]
@@ -726,16 +718,31 @@ pub struct ControlFields {
     pub transition: Option<LayoutTransition>,
 }
 
+/// What a slider writes. Omit for decorative/unbound thumbs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SliderControl {
+    Volume,
+    Seek,
+    Balance,
+    Eq,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct EqBandFields {
-    pub band: u8,
-    /// Linear tilt control point. All `spread: "linear"` eqBand nodes in the
-    /// skin are endpoints; dragging one interpolates the other bands.
+pub struct SliderFields {
+    /// Host write path. Omit for decorative/unbound thumbs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub control: Option<SliderControl>,
+    /// 1-based EQ band (required when `control` is `Eq`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub band: Option<u8>,
+    /// Linear tilt control point when `control` is `Eq`. All `spread: "linear"`
+    /// eq sliders in the skin are endpoints; dragging one interpolates the other bands.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub spread: Option<String>,
     #[serde(flatten)]
-    pub control: ControlFields,
+    pub base: ControlFields,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1614,15 +1621,11 @@ fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
         LayoutNode::Subview(f) => f.style.as_ref(),
         LayoutNode::Decoration(f) => f.style.as_ref(),
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Slider(f)
-        | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => f.style.as_ref(),
-        LayoutNode::EqBand(f) => f.control.style.as_ref(),
+        LayoutNode::Slider(f) => f.base.style.as_ref(),
         LayoutNode::ButtonGroup(f) => f.style.as_ref(),
         LayoutNode::Text(f) => f.style.as_ref(),
         LayoutNode::Playlist(f) => f.style.as_ref(),
@@ -1640,15 +1643,11 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
         LayoutNode::Subview(f) => f.transition.as_ref(),
         LayoutNode::Decoration(f) => f.transition.as_ref(),
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Slider(f)
-        | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => f.transition.as_ref(),
-        LayoutNode::EqBand(f) => f.control.transition.as_ref(),
+        LayoutNode::Slider(f) => f.base.transition.as_ref(),
         LayoutNode::ButtonGroup(f) => f.transition.as_ref(),
         LayoutNode::Text(f) => f.transition.as_ref(),
         LayoutNode::Playlist(f) => f.transition.as_ref(),
@@ -1743,15 +1742,11 @@ fn layout_node_id(node: &LayoutNode) -> Option<&str> {
         LayoutNode::Subview(f) => f.id.as_deref(),
         LayoutNode::Decoration(f) => f.id.as_deref(),
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Artwork(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Slider(f)
-        | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => f.id.as_deref(),
-        LayoutNode::EqBand(f) => f.control.id.as_deref(),
+        LayoutNode::Slider(f) => f.base.id.as_deref(),
         LayoutNode::ButtonGroup(f) => f.id.as_deref(),
         LayoutNode::Text(f) => f.id.as_deref(),
         LayoutNode::Playlist(f) => f.id.as_deref(),
@@ -1780,6 +1775,60 @@ fn validate_control_fields(f: &ControlFields, pack_dir: &Path, errors: &mut Vec<
         validate_bounds(bounds, "bounds", errors);
     }
     validate_presentation(&f.presentation, pack_dir, errors);
+}
+
+fn validate_slider_fields(f: &SliderFields, pack_dir: &Path, errors: &mut Vec<String>) {
+    validate_control_fields(&f.base, pack_dir, errors);
+    if f.base.object_fit.is_some() {
+        errors.push("objectFit is only valid on artwork nodes".into());
+    }
+
+    let is_primitive = matches!(f.base.presentation, Presentation::Primitive { .. });
+    match &f.control {
+        Some(SliderControl::Eq) => {
+            match f.band {
+                Some(band) if (1..=10).contains(&band) => {}
+                Some(band) => {
+                    errors.push(format!("slider control eq band must be between 1 and 10, got {band}"));
+                }
+                None => {
+                    errors.push("slider control eq requires band (1–10)".into());
+                }
+            }
+            if let Some(spread) = &f.spread {
+                if spread != "linear" {
+                    errors.push(format!(
+                        "slider control eq spread must be \"linear\", got {spread}"
+                    ));
+                }
+            }
+            if is_primitive {
+                errors.push("slider control eq does not support primitive presentation".into());
+            }
+        }
+        Some(SliderControl::Volume) | Some(SliderControl::Seek) => {
+            if f.band.is_some() {
+                errors.push("slider band is only valid when control is eq".into());
+            }
+            if f.spread.is_some() {
+                errors.push("slider spread is only valid when control is eq".into());
+            }
+        }
+        Some(SliderControl::Balance) | None => {
+            if f.band.is_some() {
+                errors.push("slider band is only valid when control is eq".into());
+            }
+            if f.spread.is_some() {
+                errors.push("slider spread is only valid when control is eq".into());
+            }
+            if is_primitive {
+                errors.push(
+                    "slider primitive presentation is only valid when control is volume or seek"
+                        .into(),
+                );
+            }
+        }
+    }
 }
 
 fn validate_view_layout(
@@ -1853,12 +1902,8 @@ fn validate_layout_node(
             }
         }
         LayoutNode::Button(f)
-        | LayoutNode::Seekbar(f)
         | LayoutNode::Transport(f)
         | LayoutNode::Visualizer(f)
-        | LayoutNode::Volume(f)
-        | LayoutNode::Slider(f)
-        | LayoutNode::Balance(f)
         | LayoutNode::Time(f) => {
             validate_control_fields(f, pack_dir, errors);
             if f.object_fit.is_some() {
@@ -1883,22 +1928,8 @@ fn validate_layout_node(
                 }
             }
         }
-        LayoutNode::EqBand(f) => {
-            if !(1..=10).contains(&f.band) {
-                errors.push(format!(
-                    "eqBand band must be between 1 and 10, got {}",
-                    f.band
-                ));
-            }
-            if let Some(spread) = &f.spread {
-                if spread != "linear" {
-                    errors.push(format!("eqBand spread must be \"linear\", got {spread}"));
-                }
-            }
-            validate_control_fields(&f.control, pack_dir, errors);
-            if f.control.object_fit.is_some() {
-                errors.push("objectFit is only valid on artwork nodes".into());
-            }
+        LayoutNode::Slider(f) => {
+            validate_slider_fields(f, pack_dir, errors);
         }
         LayoutNode::ButtonGroup(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
@@ -2829,7 +2860,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"eqBand",
+                      "type":"slider",
+                      "control":"eq",
                       "band":1,
                       "presentation":{
                         "kind":"bitmapHorizontalSlider",
@@ -2850,13 +2882,14 @@ mod tests {
         let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
             panic!("expected canvas");
         };
-        let LayoutNode::EqBand(eq) = &canvas.children[0] else {
-            panic!("expected eqBand");
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
         };
-        assert_eq!(eq.band, 1);
-        assert!(eq.spread.is_none());
+        assert_eq!(slider.control, Some(SliderControl::Eq));
+        assert_eq!(slider.band, Some(1));
+        assert!(slider.spread.is_none());
         assert!(matches!(
-            eq.control.presentation,
+            slider.base.presentation,
             Presentation::BitmapHorizontalSlider { .. }
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -2877,7 +2910,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"eqBand",
+                      "type":"slider",
+                      "control":"eq",
                       "band":1,
                       "spread":"linear",
                       "presentation":{
@@ -2899,10 +2933,10 @@ mod tests {
         let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
             panic!("expected canvas");
         };
-        let LayoutNode::EqBand(eq) = &canvas.children[0] else {
-            panic!("expected eqBand");
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
         };
-        assert_eq!(eq.spread.as_deref(), Some("linear"));
+        assert_eq!(slider.spread.as_deref(), Some("linear"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -2921,7 +2955,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"volume",
+                      "type":"slider",
+                      "control":"volume",
                       "presentation":{
                         "kind":"bitmapVerticalSlider",
                         "thumb":{
@@ -2944,10 +2979,11 @@ mod tests {
         let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
             panic!("expected canvas");
         };
-        let LayoutNode::Volume(volume) = &canvas.children[0] else {
-            panic!("expected volume");
+        let LayoutNode::Slider(slider) = &canvas.children[0] else {
+            panic!("expected slider");
         };
-        let Presentation::BitmapVerticalSlider { thumb, .. } = &volume.presentation else {
+        assert_eq!(slider.control, Some(SliderControl::Volume));
+        let Presentation::BitmapVerticalSlider { thumb, .. } = &slider.base.presentation else {
             panic!("expected bitmapVerticalSlider");
         };
         assert_eq!(thumb.default, "sliders/t.png");
@@ -2996,8 +3032,9 @@ mod tests {
         let LayoutNode::Slider(slider) = &canvas.children[0] else {
             panic!("expected slider");
         };
+        assert!(slider.control.is_none());
         assert!(matches!(
-            slider.enabled_when,
+            slider.base.enabled_when,
             Some(SkinCondition::Bool(false))
         ));
         let _ = std::fs::remove_dir_all(&dir);
@@ -3018,7 +3055,8 @@ mod tests {
                     "width":100,
                     "height":80,
                     "children":[{
-                      "type":"volume",
+                      "type":"slider",
+                      "control":"volume",
                       "presentation":{
                         "kind":"bitmapVerticalSlider",
                         "thumb":"sliders/t.png",

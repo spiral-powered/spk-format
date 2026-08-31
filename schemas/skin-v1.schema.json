@@ -418,8 +418,11 @@
         { "$ref": "#/$defs/buttonGroupNode" },
         { "$ref": "#/$defs/slideshowNode" },
         { "$ref": "#/$defs/scrollStripNode" },
-        { "$ref": "#/$defs/eqBandNode" },
-        { "$ref": "#/$defs/balanceNode" }
+        { "$ref": "#/$defs/sliderUnboundNode" },
+        { "$ref": "#/$defs/sliderVolumeNode" },
+        { "$ref": "#/$defs/sliderSeekNode" },
+        { "$ref": "#/$defs/sliderBalanceNode" },
+        { "$ref": "#/$defs/sliderEqNode" }
       ]
     },
     "skinCondition": {
@@ -816,12 +819,9 @@
               "type": "string",
               "enum": [
                 "button",
-                "seekbar",
                 "artwork",
                 "transport",
                 "visualizer",
-                "volume",
-                "slider",
                 "time"
               ]
             },
@@ -1113,50 +1113,23 @@
         }
       }
     },
-    "eqBandNode": {
-      "allOf": [
-        { "$ref": "#/$defs/nodeBase" },
-        {
-          "type": "object",
-          "required": ["type", "band", "presentation"],
-          "additionalProperties": false,
-          "properties": {
-            "id": { "type": "string" },
-            "className": { "type": "string", "minLength": 1 },
-            "style": { "$ref": "#/$defs/nodeStyle" },
-            "type": { "const": "eqBand" },
-            "band": { "type": "integer", "minimum": 1, "maximum": 10 },
-            "spread": {
-              "const": "linear",
-              "description": "This slider is a control point of a linear tilt across the 10-band EQ. All eqBand nodes with spread:linear in the skin form the endpoints (Plus! Nature bass/treble). Dragging one interpolates unoccupied bands between those endpoints."
-            },
-            "bind": { "type": "string" },
-            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
-            "tooltip": {
-              "type": "string",
-              "description": "OS tooltip text; supports {bind.path} placeholders."
-            },
-            "tooltipWhen": {
-              "type": "object",
-              "description": "Bind path → tooltip when truthy (last match wins).",
-              "additionalProperties": { "type": "string" }
-            },
-            "presentation": {
-              "oneOf": [
-                { "$ref": "#/$defs/stripSliderPresentation" },
-                { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
-                { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
-              ]
-            },
-            "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
-            "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
-          }
-        }
+    "sliderBitmapStripPresentation": {
+      "oneOf": [
+        { "$ref": "#/$defs/stripSliderPresentation" },
+        { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+        { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
       ]
     },
-    "balanceNode": {
+    "sliderVolumeSeekPresentation": {
+      "oneOf": [
+        { "$ref": "#/$defs/stripSliderPresentation" },
+        { "$ref": "#/$defs/bitmapVerticalSliderPresentation" },
+        { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" },
+        { "$ref": "#/$defs/primitivePresentation" }
+      ]
+    },
+    "sliderUnboundNode": {
+      "description": "Decorative or unbound slider. Omit control — no host write path.",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
@@ -1167,7 +1140,7 @@
             "id": { "type": "string" },
             "className": { "type": "string", "minLength": 1 },
             "style": { "$ref": "#/$defs/nodeStyle" },
-            "type": { "const": "balance" },
+            "type": { "const": "slider" },
             "bind": { "type": "string" },
             "enabledWhen": { "$ref": "#/$defs/skinCondition" },
             "tooltip": {
@@ -1179,12 +1152,169 @@
               "description": "Bind path → tooltip when truthy (last match wins).",
               "additionalProperties": { "type": "string" }
             },
-            "presentation": {
-              "oneOf": [
-                { "$ref": "#/$defs/bitmapHorizontalSliderPresentation" }
-              ]
-            },
+            "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
+          }
+        }
+      ]
+    },
+    "sliderVolumeNode": {
+      "description": "Slider that drives player volume (0–1).",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "volume" },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderVolumeSeekPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
+          }
+        }
+      ]
+    },
+    "sliderSeekNode": {
+      "description": "Slider that seeks playback (preview on drag, commit on release).",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "seek" },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderVolumeSeekPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
+          }
+        }
+      ]
+    },
+    "sliderBalanceNode": {
+      "description": "Slider that drives stereo balance (−1…1).",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "balance" },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
+          }
+        }
+      ]
+    },
+    "sliderEqNode": {
+      "description": "Slider that drives one EQ band. band is required; spread:linear marks a linear-tilt endpoint.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type", "control", "band", "presentation"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "slider" },
+            "control": { "const": "eq" },
+            "band": { "type": "integer", "minimum": 1, "maximum": 10 },
+            "spread": {
+              "const": "linear",
+              "description": "This slider is a control point of a linear tilt across the 10-band EQ. All control:eq nodes with spread:linear in the skin form the endpoints (Plus! Nature bass/treble). Dragging one interpolates unoccupied bands between those endpoints."
+            },
+            "bind": { "type": "string" },
+            "enabledWhen": { "$ref": "#/$defs/skinCondition" },
+            "tooltip": {
+              "type": "string",
+              "description": "OS tooltip text; supports {bind.path} placeholders."
+            },
+            "tooltipWhen": {
+              "type": "object",
+              "description": "Bind path → tooltip when truthy (last match wins).",
+              "additionalProperties": { "type": "string" }
+            },
+            "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" }

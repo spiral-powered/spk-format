@@ -16,15 +16,15 @@ pub use skin::{
 // Re-export skin schema types used by spiral-desktop's runtime loader.
 pub use skin::{
     ButtonGroupElement, ButtonGroupFields, CanvasFields, ContainerFields, ControlFields,
-    DecorationFields, DigitStripSlot, EqBandFields, FramedPanelInset, InteractiveAssets,
-    LayoutBounds, LayoutBoundsOverride, LayoutNode, LayoutTransition, NodeStyle, PlaylistFields,
-    Presentation, ScrollStripFields, ScrollStripItem, ScrollStripPresentation, ScrollStripSlide,
+    DecorationFields, DigitStripSlot, FramedPanelInset, InteractiveAssets, LayoutBounds,
+    LayoutBoundsOverride, LayoutNode, LayoutTransition, NodeStyle, PlaylistFields, Presentation,
+    ScrollStripFields, ScrollStripItem, ScrollStripPresentation, ScrollStripSlide,
     ScrollStripSlideItem, SkinClickEffect, SkinCondition, SkinLifecycleEffect, SkinView,
     SkinViewStateSpec, SkinViewStateTransition, SkinVisualizer, SlideshowDeck, SlideshowFields,
-    SlideshowPresentation, SubviewFields, TextControlFields, ThumbAssets, TiledFrameAssets,
-    TiledFrameContentInset, TiledFrameExplicitPresentation, TiledFrameFields,
-    TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef, TiledFrameTileSize,
-    TiledFrameTileSizes, ViewLayout, WindowChrome,
+    SlideshowPresentation, SliderControl, SliderFields, SubviewFields, TextControlFields,
+    ThumbAssets, TiledFrameAssets, TiledFrameContentInset, TiledFrameExplicitPresentation,
+    TiledFrameFields, TiledFramePresentation, TiledFramePresetPresentation, TiledFrameTileDef,
+    TiledFrameTileSize, TiledFrameTileSizes, ViewLayout, WindowChrome,
 };
 pub use theme::{validate_theme_contribution_at, REQUIRED_THEME_TOKEN_KEYS};
 pub use visualizer::{
