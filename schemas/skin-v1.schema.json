@@ -417,6 +417,7 @@
         { "$ref": "#/$defs/tiledFrameNode" },
         { "$ref": "#/$defs/controlNode" },
         { "$ref": "#/$defs/textNode" },
+        { "$ref": "#/$defs/inputNode" },
         { "$ref": "#/$defs/playlistNode" },
         { "$ref": "#/$defs/buttonGroupNode" },
         { "$ref": "#/$defs/slideshowNode" },
@@ -916,6 +917,47 @@
               "type": "string",
               "enum": ["visible", "clip", "scroll", "scroll-bounce"],
               "description": "Runtime overflow behavior. Typography lives in style."
+            },
+            "bounds": { "$ref": "#/$defs/layoutBounds" },
+            "boundsWhen": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+            },
+            "visibleWhen": { "$ref": "#/$defs/skinCondition" },
+            "styleWhen": { "$ref": "#/$defs/styleWhen" },
+            "animations": { "type": "object" },
+            "transition": { "$ref": "#/$defs/layoutTransition" }
+          }
+        }
+      ]
+    },
+    "inputNode": {
+      "description": "Editable text field. Omit presentation — there is no drawing backend to pick. Typography lives in style. onChange effects receive the current string as payload.query.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["type"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "string" },
+            "className": { "type": "string", "minLength": 1 },
+            "style": { "$ref": "#/$defs/nodeStyle" },
+            "type": { "const": "input" },
+            "placeholder": { "type": "string" },
+            "maxLength": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Maximum character count (WMP textlimit)."
+            },
+            "enabledWhen": {
+              "$ref": "#/$defs/skinCondition",
+              "description": "When truthy, the field is editable."
+            },
+            "onChange": {
+              "type": "array",
+              "description": "Effects run after each edit. The host merges payload.query with the current string.",
+              "items": { "$ref": "#/$defs/skinClickEffect" }
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
             "boundsWhen": {

@@ -39,6 +39,7 @@ const KNOWN_ACTIONS: &[&str] = &[
     "visualizer.next",
     "playlist.setSource",
     "playlist.playTrack",
+    "playlist.setFilter",
     "eq.setBand",
     "eq.applyPreset",
     "eq.reset",
@@ -94,6 +95,8 @@ const KNOWN_BINDS: &[&str] = &[
     "playlist.sourceLabel",
     "playlist.trackCount",
     "playlist.hasTracks",
+    "playlist.filterQuery",
+    "playlist.hasFilter",
     "eq.enabled",
     "eq.presetId",
     "eq.isManual",
@@ -285,7 +288,6 @@ pub struct LayoutTransition {
     pub easing: Option<String>,
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutBounds {
@@ -348,6 +350,8 @@ pub enum LayoutNode {
     ButtonGroup(ButtonGroupFields),
     #[serde(rename = "text")]
     Text(TextControlFields),
+    #[serde(rename = "input")]
+    Input(InputControlFields),
     #[serde(rename = "artwork")]
     Artwork(ControlFields),
     #[serde(rename = "transport")]
@@ -797,6 +801,35 @@ pub struct TextControlFields {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct InputControlFields {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub class_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style: Option<NodeStyle>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub style_when: Option<HashMap<String, NodeStyle>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub placeholder: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_length: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled_when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_change: Option<Vec<SkinClickEffect>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds: Option<LayoutBounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible_when: Option<SkinCondition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition: Option<LayoutTransition>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InteractiveAssets {
     pub default: String,
@@ -1076,6 +1109,7 @@ fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
             || is_known_slideshow_bind(p)
             || is_known_scroll_strip_bind(p)
             || is_known_hover_bind(p)
+            || is_known_input_bind(p)
         {
             return;
         }
@@ -1088,6 +1122,16 @@ fn is_known_hover_bind(path: &str) -> bool {
         return false;
     };
     !id.is_empty() && !id.contains('.')
+}
+
+fn is_known_input_bind(path: &str) -> bool {
+    let Some(rest) = path.strip_prefix("input.") else {
+        return false;
+    };
+    let Some((id, prop)) = rest.split_once('.') else {
+        return false;
+    };
+    !id.is_empty() && !id.contains('.') && matches!(prop, "value" | "empty")
 }
 
 fn is_known_view_bind(path: &str) -> bool {
@@ -1682,6 +1726,7 @@ fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
         LayoutNode::Slider(f) => f.base.style.as_ref(),
         LayoutNode::ButtonGroup(f) => f.style.as_ref(),
         LayoutNode::Text(f) => f.style.as_ref(),
+        LayoutNode::Input(f) => f.style.as_ref(),
         LayoutNode::Playlist(f) => f.style.as_ref(),
         LayoutNode::TiledFrame(f) => f.style.as_ref(),
         LayoutNode::Slideshow(f) => f.style.as_ref(),
@@ -1705,6 +1750,7 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
         LayoutNode::Slider(f) => f.base.transition.as_ref(),
         LayoutNode::ButtonGroup(f) => f.transition.as_ref(),
         LayoutNode::Text(f) => f.transition.as_ref(),
+        LayoutNode::Input(f) => f.transition.as_ref(),
         LayoutNode::Playlist(f) => f.transition.as_ref(),
         LayoutNode::TiledFrame(f) => f.transition.as_ref(),
         LayoutNode::Slideshow(f) => f.transition.as_ref(),
@@ -1714,7 +1760,9 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
 
 fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyle>> {
     match node {
-        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.style_when.as_ref(),
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
+            f.style_when.as_ref()
+        }
         LayoutNode::Subview(f) => f.style_when.as_ref(),
         LayoutNode::Decoration(f) => f.style_when.as_ref(),
         LayoutNode::Button(f)
@@ -1726,6 +1774,7 @@ fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyl
         LayoutNode::Slider(f) => f.base.style_when.as_ref(),
         LayoutNode::ButtonGroup(f) => f.style_when.as_ref(),
         LayoutNode::Text(f) => f.style_when.as_ref(),
+        LayoutNode::Input(f) => f.style_when.as_ref(),
         LayoutNode::Playlist(f) => f.style_when.as_ref(),
         LayoutNode::TiledFrame(f) => f.style_when.as_ref(),
         LayoutNode::Slideshow(f) => f.style_when.as_ref(),
@@ -1742,10 +1791,7 @@ fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
 
 const LAYOUT_EASINGS: &[&str] = &["linear", "ease", "ease-in", "ease-out", "ease-in-out"];
 
-fn validate_style_when(
-    when: Option<&HashMap<String, NodeStyle>>,
-    errors: &mut Vec<String>,
-) {
+fn validate_style_when(when: Option<&HashMap<String, NodeStyle>>, errors: &mut Vec<String>) {
     let Some(when) = when else {
         return;
     };
@@ -1839,6 +1885,7 @@ fn layout_node_id(node: &LayoutNode) -> Option<&str> {
         LayoutNode::Slider(f) => f.base.id.as_deref(),
         LayoutNode::ButtonGroup(f) => f.id.as_deref(),
         LayoutNode::Text(f) => f.id.as_deref(),
+        LayoutNode::Input(f) => f.id.as_deref(),
         LayoutNode::Playlist(f) => f.id.as_deref(),
         LayoutNode::TiledFrame(f) => f.id.as_deref(),
         LayoutNode::Slideshow(f) => f.id.as_deref(),
@@ -1879,7 +1926,9 @@ fn validate_slider_fields(f: &SliderFields, pack_dir: &Path, errors: &mut Vec<St
             match f.band {
                 Some(band) if (1..=10).contains(&band) => {}
                 Some(band) => {
-                    errors.push(format!("slider control eq band must be between 1 and 10, got {band}"));
+                    errors.push(format!(
+                        "slider control eq band must be between 1 and 10, got {band}"
+                    ));
                 }
                 None => {
                     errors.push("slider control eq requires band (1–10)".into());
@@ -2047,6 +2096,19 @@ fn validate_layout_node(
                     errors.push(format!(
                         "text overflow \"{overflow}\" must be visible, clip, scroll, or scroll-bounce"
                     ));
+                }
+            }
+            if let Some(bounds) = &f.bounds {
+                validate_bounds(bounds, "bounds", errors);
+            }
+        }
+        LayoutNode::Input(f) => {
+            validate_click_effects(f.on_change.as_deref(), errors);
+            validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            if let Some(max_length) = f.max_length {
+                if max_length == 0 {
+                    errors.push("input maxLength must be >= 1".into());
                 }
             }
             if let Some(bounds) = &f.bounds {
@@ -2557,6 +2619,64 @@ mod tests {
             }"#,
         );
         validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_input_node_with_placeholder_and_on_change() {
+        let (dir, path) = write_skin_json(
+            "input-playlist-filter",
+            r##"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"input",
+                    "id":"plSearchEdit",
+                    "placeholder":"Search...",
+                    "style":{"color":"#C1D0E7","fontSize":8,"backgroundColor":"#000000"},
+                    "onChange":[{"action":"playlist.setFilter"}]
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_input_node_with_presentation() {
+        let (dir, path) = write_skin_json(
+            "input-with-presentation",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                    "type":"input",
+                    "placeholder":"Search...",
+                    "presentation":{"kind":"primitive"}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("presentation") || err.contains("valid skin JSON"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
