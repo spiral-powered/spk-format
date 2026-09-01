@@ -1,7 +1,7 @@
 //! Skin contribution types and validation (`skin.json`).
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
@@ -35,6 +35,8 @@ const KNOWN_ACTIONS: &[&str] = &[
     "skin.closeView",
     "skin.toggleView",
     "skin.toggleSoundEffects",
+    "skin.togglePref",
+    "skin.setPref",
     "visualizer.previous",
     "visualizer.next",
     "playlist.setSource",
@@ -113,6 +115,20 @@ const KNOWN_BINDS: &[&str] = &[
     "eq.band.10",
 ];
 
+const BUILTIN_SKIN_PREF_IDS: &[&str] = &["soundEffectsEnabled"];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SkinSetting {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(rename = "type")]
+    pub setting_type: String,
+    pub default: serde_json::Value,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SkinManifest {
@@ -134,6 +150,18 @@ pub struct SkinManifest {
     pub stylesheet: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound_effects: Option<HashMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub settings: Option<Vec<SkinSetting>>,
+}
+
+struct SkinValidationCtx<'a> {
+    declared_pref_ids: &'a HashSet<String>,
+}
+
+impl SkinValidationCtx<'_> {
+    fn is_known_skin_pref(&self, id: &str) -> bool {
+        BUILTIN_SKIN_PREF_IDS.contains(&id) || self.declared_pref_ids.contains(id)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,21 +175,28 @@ pub enum SkinCondition {
 }
 
 impl SkinCondition {
-    pub fn validate_leaves(&self, field: &str, errors: &mut Vec<String>) {
+    fn validate_leaves(
+        &self,
+        field: &str,
+        ctx: &SkinValidationCtx<'_>,
+        errors: &mut Vec<String>,
+    ) {
         match self {
             SkinCondition::Bool(_) => {}
-            SkinCondition::Leaf(path) => validate_bind(Some(path.as_str()), field, errors),
+            SkinCondition::Leaf(path) => {
+                validate_bind(Some(path.as_str()), field, ctx, errors);
+            }
             SkinCondition::All { all } => {
                 for child in all {
-                    child.validate_leaves(field, errors);
+                    child.validate_leaves(field, ctx, errors);
                 }
             }
             SkinCondition::Any { any } => {
                 for child in any {
-                    child.validate_leaves(field, errors);
+                    child.validate_leaves(field, ctx, errors);
                 }
             }
-            SkinCondition::Not { not } => not.validate_leaves(field, errors),
+            SkinCondition::Not { not } => not.validate_leaves(field, ctx, errors),
         }
     }
 }
@@ -1112,20 +1147,36 @@ pub fn validate_skin_contribution_at(manifest_path: &Path) -> Result<(), String>
     validate_skin_manifest(&manifest, pack_dir)
 }
 
-fn validate_condition(condition: Option<&SkinCondition>, field: &str, errors: &mut Vec<String>) {
+fn validate_condition(
+    condition: Option<&SkinCondition>,
+    field: &str,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(cond) = condition {
-        cond.validate_leaves(field, errors);
+        cond.validate_leaves(field, ctx, errors);
     }
 }
 
-fn validate_bind(path: Option<&str>, field: &str, errors: &mut Vec<String>) {
+fn validate_bind(
+    path: Option<&str>,
+    field: &str,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(p) = path {
         if KNOWN_BINDS.contains(&p) {
             return;
         }
         if p.starts_with("skin.pref.") {
             let suffix = p.strip_prefix("skin.pref.").unwrap_or("");
+            if !suffix.is_empty() && !suffix.contains('.') && ctx.is_known_skin_pref(suffix) {
+                return;
+            }
             if !suffix.is_empty() && !suffix.contains('.') {
+                errors.push(format!(
+                    "{field} references unknown skin preference \"{suffix}\"."
+                ));
                 return;
             }
         }
@@ -1264,9 +1315,11 @@ fn validate_interactive_assets_when(
     assets_when: &HashMap<String, InteractiveAssets>,
     pack_dir: &Path,
     label: &str,
+    ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     for (bind, assets) in assets_when {
+        validate_bind(Some(bind.as_str()), &format!("{label}.assetsWhen"), ctx, errors);
         validate_interactive_assets(
             assets,
             pack_dir,
@@ -1286,20 +1339,28 @@ fn validate_action(action: Option<&str>, errors: &mut Vec<String>) {
     }
 }
 
-fn validate_click_effects(effects: Option<&[SkinClickEffect]>, errors: &mut Vec<String>) {
+fn validate_click_effects(
+    effects: Option<&[SkinClickEffect]>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(effects) = effects {
         for effect in effects {
             validate_action(Some(effect.action.as_str()), errors);
-            validate_condition(effect.when.as_ref(), "when", errors);
+            validate_condition(effect.when.as_ref(), "when", ctx, errors);
         }
     }
 }
 
-fn validate_lifecycle_effects(effects: Option<&[SkinLifecycleEffect]>, errors: &mut Vec<String>) {
+fn validate_lifecycle_effects(
+    effects: Option<&[SkinLifecycleEffect]>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     if let Some(effects) = effects {
         for effect in effects {
             validate_action(Some(effect.action.as_str()), errors);
-            validate_condition(effect.when.as_ref(), "when", errors);
+            validate_condition(effect.when.as_ref(), "when", ctx, errors);
         }
     }
 }
@@ -1504,7 +1565,12 @@ fn validate_primitive_presentation(
     }
 }
 
-fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &mut Vec<String>) {
+fn validate_presentation(
+    presentation: &Presentation,
+    pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     match presentation {
         Presentation::Bitmap {
             assets,
@@ -1513,14 +1579,14 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         } => {
             validate_interactive_assets(assets, pack_dir, "bitmap assets", errors);
             if let Some(when) = assets_when {
-                validate_interactive_assets_when(when, pack_dir, "bitmap", errors);
+                validate_interactive_assets_when(when, pack_dir, "bitmap", ctx, errors);
             }
         }
         Presentation::Gif {
             asset, on_complete, ..
         } => {
             validate_skin_asset_file(asset, pack_dir, "gif asset", errors);
-            validate_lifecycle_effects(on_complete.as_deref(), errors);
+            validate_lifecycle_effects(on_complete.as_deref(), ctx, errors);
         }
         Presentation::Css { stylesheet, .. } => {
             if let Some(sheet) = stylesheet {
@@ -1668,16 +1734,16 @@ fn validate_presentation(presentation: &Presentation, pack_dir: &Path, errors: &
         } => {
             validate_interactive_assets(assets, pack_dir, "buttonGroup assets", errors);
             if let Some(when) = assets_when {
-                validate_interactive_assets_when(when, pack_dir, "buttonGroup", errors);
+                validate_interactive_assets_when(when, pack_dir, "buttonGroup", ctx, errors);
             }
             validate_skin_asset_file(position_map, pack_dir, "buttonGroup positionMap", errors);
             if elements.is_empty() {
                 errors.push("buttonGroup elements must not be empty".into());
             }
             for element in elements {
-                validate_click_effects(Some(&element.on_click), errors);
-                validate_condition(element.active_when.as_ref(), "activeWhen", errors);
-                validate_condition(element.enabled_when.as_ref(), "enabledWhen", errors);
+                validate_click_effects(Some(&element.on_click), ctx, errors);
+                validate_condition(element.active_when.as_ref(), "activeWhen", ctx, errors);
+                validate_condition(element.enabled_when.as_ref(), "enabledWhen", ctx, errors);
             }
         }
     }
@@ -1850,25 +1916,30 @@ fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
 
 const LAYOUT_EASINGS: &[&str] = &["linear", "ease", "ease-in", "ease-out", "ease-in-out"];
 
-fn validate_style_when(when: Option<&HashMap<String, NodeStyle>>, errors: &mut Vec<String>) {
+fn validate_style_when(
+    when: Option<&HashMap<String, NodeStyle>>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
     let Some(when) = when else {
         return;
     };
     for (path, style) in when {
-        validate_bind(Some(path.as_str()), "styleWhen", errors);
+        validate_bind(Some(path.as_str()), "styleWhen", ctx, errors);
         validate_node_style(Some(style), &format!("styleWhen.{path}"), errors);
     }
 }
 
 fn validate_transition_when(
     when: Option<&HashMap<String, LayoutTransition>>,
+    ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     let Some(when) = when else {
         return;
     };
     for (path, transition) in when {
-        validate_bind(Some(path.as_str()), "transitionWhen", errors);
+        validate_bind(Some(path.as_str()), "transitionWhen", ctx, errors);
         validate_layout_transition(Some(transition), &format!("transitionWhen.{path}"), errors);
     }
 }
@@ -1978,20 +2049,30 @@ fn layout_node_children(node: &LayoutNode) -> &[LayoutNode] {
     }
 }
 
-fn validate_control_fields(f: &ControlFields, pack_dir: &Path, errors: &mut Vec<String>) {
-    validate_click_effects(f.on_click.as_deref(), errors);
-    validate_bind(f.bind.as_deref(), "bind", errors);
-    validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
-    validate_condition(f.active_when.as_ref(), "activeWhen", errors);
-    validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+fn validate_control_fields(
+    f: &ControlFields,
+    pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    validate_click_effects(f.on_click.as_deref(), ctx, errors);
+    validate_bind(f.bind.as_deref(), "bind", ctx, errors);
+    validate_condition(f.enabled_when.as_ref(), "enabledWhen", ctx, errors);
+    validate_condition(f.active_when.as_ref(), "activeWhen", ctx, errors);
+    validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
     if let Some(bounds) = &f.bounds {
         validate_bounds(bounds, "bounds", errors);
     }
-    validate_presentation(&f.presentation, pack_dir, errors);
+    validate_presentation(&f.presentation, pack_dir, ctx, errors);
 }
 
-fn validate_slider_fields(f: &SliderFields, pack_dir: &Path, errors: &mut Vec<String>) {
-    validate_control_fields(&f.base, pack_dir, errors);
+fn validate_slider_fields(
+    f: &SliderFields,
+    pack_dir: &Path,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    validate_control_fields(&f.base, pack_dir, ctx, errors);
     if f.base.object_fit.is_some() {
         errors.push("objectFit is only valid on artwork nodes".into());
     }
@@ -2050,22 +2131,23 @@ fn validate_view_layout(
     layout: &ViewLayout,
     pack_dir: &Path,
     view_name: &str,
+    ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     let start = errors.len();
     validate_node_style(view_layout_style(layout), "style", errors);
-    validate_style_when(view_layout_style_when(layout), errors);
+    validate_style_when(view_layout_style_when(layout), ctx, errors);
     validate_layout_transition(view_layout_transition(layout), "transition", errors);
-    validate_transition_when(view_layout_transition_when(layout), errors);
+    validate_transition_when(view_layout_transition_when(layout), ctx, errors);
     match layout {
         ViewLayout::Canvas(f) => {
             if f.width == 0 || f.height == 0 {
                 errors.push("canvas root width and height must be at least 1".into());
             }
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
         }
         ViewLayout::Row(f) | ViewLayout::Column(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -2077,7 +2159,7 @@ fn validate_view_layout(
         &layout_where(view_name, view_layout_id(layout)),
     );
     for child in view_layout_children(layout) {
-        validate_layout_node(child, pack_dir, view_name, errors);
+        validate_layout_node(child, pack_dir, view_name, ctx, errors);
     }
 }
 
@@ -2085,33 +2167,34 @@ fn validate_layout_node(
     node: &LayoutNode,
     pack_dir: &Path,
     view_name: &str,
+    ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     let start = errors.len();
     validate_node_style(layout_node_style(node), "style", errors);
-    validate_style_when(layout_node_style_when(node), errors);
+    validate_style_when(layout_node_style_when(node), ctx, errors);
     validate_layout_transition(layout_node_transition(node), "transition", errors);
-    validate_transition_when(layout_node_transition_when(node), errors);
+    validate_transition_when(layout_node_transition_when(node), ctx, errors);
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
         }
         LayoutNode::Subview(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             validate_bounds(&f.bounds, "bounds", errors);
         }
         LayoutNode::Decoration(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
-            validate_presentation(&f.presentation, pack_dir, errors);
+            validate_presentation(&f.presentation, pack_dir, ctx, errors);
         }
         LayoutNode::Artwork(f) => {
-            validate_control_fields(f, pack_dir, errors);
+            validate_control_fields(f, pack_dir, ctx, errors);
             if let Some(fit) = f.object_fit.as_deref() {
                 if !matches!(fit, "cover" | "contain" | "fill") {
                     errors.push(format!(
@@ -2125,7 +2208,7 @@ fn validate_layout_node(
         | LayoutNode::Visualizer(f)
         | LayoutNode::Rating(f)
         | LayoutNode::Time(f) => {
-            validate_control_fields(f, pack_dir, errors);
+            validate_control_fields(f, pack_dir, ctx, errors);
             if f.object_fit.is_some() {
                 errors.push("objectFit is only valid on artwork nodes".into());
             }
@@ -2136,7 +2219,7 @@ fn validate_layout_node(
             validate_node_style(f.source_style.as_ref(), "sourceStyle", errors);
             validate_node_style(f.source_hover_style.as_ref(), "sourceHoverStyle", errors);
             validate_node_style(f.row_hover_style.as_ref(), "rowHoverStyle", errors);
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -2156,18 +2239,18 @@ fn validate_layout_node(
             }
         }
         LayoutNode::Slider(f) => {
-            validate_slider_fields(f, pack_dir, errors);
+            validate_slider_fields(f, pack_dir, ctx, errors);
         }
         LayoutNode::ButtonGroup(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
-            validate_presentation(&f.presentation, pack_dir, errors);
+            validate_presentation(&f.presentation, pack_dir, ctx, errors);
         }
         LayoutNode::Text(f) => {
-            validate_bind(f.bind.as_deref(), "bind", errors);
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_bind(f.bind.as_deref(), "bind", ctx, errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(overflow) = &f.overflow {
                 const ALLOWED: &[&str] = &["visible", "clip", "scroll", "scroll-bounce"];
                 if !ALLOWED.contains(&overflow.as_str()) {
@@ -2181,9 +2264,9 @@ fn validate_layout_node(
             }
         }
         LayoutNode::Input(f) => {
-            validate_click_effects(f.on_change.as_deref(), errors);
-            validate_condition(f.enabled_when.as_ref(), "enabledWhen", errors);
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_click_effects(f.on_change.as_deref(), ctx, errors);
+            validate_condition(f.enabled_when.as_ref(), "enabledWhen", ctx, errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(max_length) = f.max_length {
                 if max_length == 0 {
                     errors.push("input maxLength must be >= 1".into());
@@ -2194,14 +2277,14 @@ fn validate_layout_node(
             }
         }
         LayoutNode::TiledFrame(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
             validate_tiled_frame_presentation(&f.presentation, pack_dir, errors);
         }
         LayoutNode::Slideshow(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -2221,7 +2304,7 @@ fn validate_layout_node(
             }
         }
         LayoutNode::ScrollStrip(f) => {
-            validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
+            validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             validate_bounds(&f.bounds, "bounds", errors);
             if f.id.as_deref().unwrap_or("").is_empty() {
                 errors.push("scrollStrip id must not be empty".into());
@@ -2254,12 +2337,84 @@ fn validate_layout_node(
         &layout_where(view_name, layout_node_id(node)),
     );
     for child in layout_node_children(node) {
-        validate_layout_node(child, pack_dir, view_name, errors);
+        validate_layout_node(child, pack_dir, view_name, ctx, errors);
     }
+}
+
+fn is_valid_skin_setting_id(id: &str) -> bool {
+    let mut chars = id.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => chars.all(|c| c.is_ascii_alphanumeric()),
+        _ => false,
+    }
+}
+
+fn validate_settings(settings: Option<&[SkinSetting]>, errors: &mut Vec<String>) -> HashSet<String> {
+    let mut declared = HashSet::new();
+    let Some(settings) = settings else {
+        return declared;
+    };
+    for (index, setting) in settings.iter().enumerate() {
+        let label = format!("settings[{index}]");
+        let id = setting.id.trim();
+        if id.is_empty() {
+            errors.push(format!("{label}.id cannot be empty"));
+            continue;
+        }
+        if !is_valid_skin_setting_id(id) {
+            errors.push(format!(
+                "{label}.id \"{id}\" must be camelCase starting with a lowercase letter"
+            ));
+            continue;
+        }
+        if BUILTIN_SKIN_PREF_IDS.contains(&id) {
+            errors.push(format!(
+                "{label}.id \"{id}\" collides with a built-in skin preference"
+            ));
+            continue;
+        }
+        if !declared.insert(id.to_string()) {
+            errors.push(format!("{label}.id \"{id}\" is duplicated"));
+            continue;
+        }
+        if setting.name.trim().is_empty() {
+            errors.push(format!("{label}.name cannot be empty"));
+        }
+        if setting.name.len() > 80 {
+            errors.push(format!("{label}.name must be at most 80 characters"));
+        }
+        if let Some(description) = &setting.description {
+            if description.len() > 280 {
+                errors.push(format!(
+                    "{label}.description must be at most 280 characters"
+                ));
+            }
+        }
+        match setting.setting_type.as_str() {
+            "boolean" => {
+                if !setting.default.is_boolean() {
+                    errors.push(format!(
+                        "{label}.default must be a boolean when type is boolean"
+                    ));
+                }
+            }
+            other => {
+                errors.push(format!(
+                    "{label}.type \"{other}\" is not supported (v1 allows boolean only)"
+                ));
+            }
+        }
+    }
+    declared
 }
 
 pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors: Vec<String> = Vec::new();
+
+    let declared_pref_ids = validate_settings(manifest.settings.as_deref(), &mut errors);
+    let ctx = SkinValidationCtx {
+        declared_pref_ids: &declared_pref_ids,
+    };
 
     if manifest.name.trim().is_empty() {
         errors.push("skin name cannot be empty".to_string());
@@ -2322,7 +2477,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 ));
             }
         }
-        validate_lifecycle_effects(view.on_activate.as_deref(), &mut errors);
+        validate_lifecycle_effects(view.on_activate.as_deref(), &ctx, &mut errors);
         if let Some(state) = &view.state {
             for spec in state.values() {
                 if let Some(on) = &spec.on {
@@ -2338,7 +2493,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 }
             }
         }
-        validate_view_layout(&view.layout, pack_dir, view_name, &mut errors);
+        validate_view_layout(&view.layout, pack_dir, view_name, &ctx, &mut errors);
     }
 
     let primary_count = manifest
@@ -3877,6 +4032,116 @@ mod tests {
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(
             err.contains("main/deco: bitmap assets.default asset not found"),
+            "unexpected error: {err}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn accepts_boolean_skin_setting() {
+        let (dir, path) = write_skin_json(
+            "setting-boolean",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "settings":[{
+                "id":"hideHelpBubble",
+                "name":"Hide help bubble",
+                "description":"Skip the startup tip.",
+                "type":"boolean",
+                "default":false
+              }],
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_duplicate_skin_setting_ids() {
+        let (dir, path) = write_skin_json(
+            "setting-dup",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "settings":[
+                {"id":"foo","name":"Foo","type":"boolean","default":false},
+                {"id":"foo","name":"Foo again","type":"boolean","default":true}
+              ],
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("duplicated"), "unexpected error: {err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_builtin_skin_setting_id_collision() {
+        let (dir, path) = write_skin_json(
+            "setting-builtin",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "settings":[{
+                "id":"soundEffectsEnabled",
+                "name":"Sound FX",
+                "type":"boolean",
+                "default":true
+              }],
+              "views":{
+                "main":{
+                  "layout":{"type":"canvas","width":100,"height":80,"children":[]}
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(err.contains("built-in"), "unexpected error: {err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_skin_pref_bind() {
+        let (dir, path) = write_skin_json(
+            "setting-bind",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"subview",
+                      "id":"panel",
+                      "visibleWhen":"skin.pref.notDeclared",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "children":[]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("unknown skin preference"),
             "unexpected error: {err}"
         );
         let _ = std::fs::remove_dir_all(&dir);
