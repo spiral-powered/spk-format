@@ -259,6 +259,8 @@ pub struct CanvasFields {
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -400,6 +402,8 @@ pub struct ContainerFields {
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -425,6 +429,8 @@ pub struct SubviewFields {
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -449,6 +455,8 @@ pub struct DecorationFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -574,6 +582,8 @@ pub struct TiledFrameFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -616,6 +626,8 @@ pub struct ButtonGroupFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -653,6 +665,8 @@ pub struct SlideshowFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -703,6 +717,8 @@ pub struct ScrollStripFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -744,6 +760,8 @@ pub struct ControlFields {
     pub object_fit: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 /// What a slider writes. Omit for decorative/unbound thumbs.
@@ -798,6 +816,8 @@ pub struct TextControlFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -827,6 +847,8 @@ pub struct InputControlFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1020,6 +1042,8 @@ pub struct PlaylistFields {
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_when: Option<HashMap<String, LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1712,6 +1736,15 @@ fn view_layout_style_when(layout: &ViewLayout) -> Option<&HashMap<String, NodeSt
     }
 }
 
+fn view_layout_transition_when(
+    layout: &ViewLayout,
+) -> Option<&HashMap<String, LayoutTransition>> {
+    match layout {
+        ViewLayout::Canvas(f) => f.transition_when.as_ref(),
+        ViewLayout::Row(f) | ViewLayout::Column(f) => f.transition_when.as_ref(),
+    }
+}
+
 fn layout_node_style(node: &LayoutNode) -> Option<&NodeStyle> {
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => f.style.as_ref(),
@@ -1782,6 +1815,32 @@ fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyl
     }
 }
 
+fn layout_node_transition_when(
+    node: &LayoutNode,
+) -> Option<&HashMap<String, LayoutTransition>> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
+            f.transition_when.as_ref()
+        }
+        LayoutNode::Subview(f) => f.transition_when.as_ref(),
+        LayoutNode::Decoration(f) => f.transition_when.as_ref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
+        | LayoutNode::Time(f) => f.transition_when.as_ref(),
+        LayoutNode::Slider(f) => f.base.transition_when.as_ref(),
+        LayoutNode::ButtonGroup(f) => f.transition_when.as_ref(),
+        LayoutNode::Text(f) => f.transition_when.as_ref(),
+        LayoutNode::Input(f) => f.transition_when.as_ref(),
+        LayoutNode::Playlist(f) => f.transition_when.as_ref(),
+        LayoutNode::TiledFrame(f) => f.transition_when.as_ref(),
+        LayoutNode::Slideshow(f) => f.transition_when.as_ref(),
+        LayoutNode::ScrollStrip(f) => f.transition_when.as_ref(),
+    }
+}
+
 fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
     match layout {
         ViewLayout::Canvas(f) => f.transition.as_ref(),
@@ -1801,14 +1860,31 @@ fn validate_style_when(when: Option<&HashMap<String, NodeStyle>>, errors: &mut V
     }
 }
 
-fn validate_layout_transition(transition: Option<&LayoutTransition>, errors: &mut Vec<String>) {
+fn validate_transition_when(
+    when: Option<&HashMap<String, LayoutTransition>>,
+    errors: &mut Vec<String>,
+) {
+    let Some(when) = when else {
+        return;
+    };
+    for (path, transition) in when {
+        validate_bind(Some(path.as_str()), "transitionWhen", errors);
+        validate_layout_transition(Some(transition), &format!("transitionWhen.{path}"), errors);
+    }
+}
+
+fn validate_layout_transition(
+    transition: Option<&LayoutTransition>,
+    field: &str,
+    errors: &mut Vec<String>,
+) {
     let Some(transition) = transition else {
         return;
     };
     if let Some(easing) = &transition.easing {
         if !LAYOUT_EASINGS.contains(&easing.as_str()) {
             errors.push(format!(
-                "transition.easing \"{easing}\" must be linear, ease, ease-in, ease-out, or ease-in-out"
+                "{field}.easing \"{easing}\" must be linear, ease, ease-in, ease-out, or ease-in-out"
             ));
         }
     }
@@ -1979,7 +2055,8 @@ fn validate_view_layout(
     let start = errors.len();
     validate_node_style(view_layout_style(layout), "style", errors);
     validate_style_when(view_layout_style_when(layout), errors);
-    validate_layout_transition(view_layout_transition(layout), errors);
+    validate_layout_transition(view_layout_transition(layout), "transition", errors);
+    validate_transition_when(view_layout_transition_when(layout), errors);
     match layout {
         ViewLayout::Canvas(f) => {
             if f.width == 0 || f.height == 0 {
@@ -2013,7 +2090,8 @@ fn validate_layout_node(
     let start = errors.len();
     validate_node_style(layout_node_style(node), "style", errors);
     validate_style_when(layout_node_style_when(node), errors);
-    validate_layout_transition(layout_node_transition(node), errors);
+    validate_layout_transition(layout_node_transition(node), "transition", errors);
+    validate_transition_when(layout_node_transition_when(node), errors);
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", errors);
@@ -2250,7 +2328,11 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 if let Some(on) = &spec.on {
                     for branches in on.values() {
                         for branch in branches {
-                            validate_layout_transition(branch.transition.as_ref(), &mut errors);
+                            validate_layout_transition(
+                                branch.transition.as_ref(),
+                                "transition",
+                                &mut errors,
+                            );
                         }
                     }
                 }
@@ -3547,6 +3629,72 @@ mod tests {
             .as_ref()
             .unwrap()["toggle"][0];
         assert_eq!(branch.transition.as_ref().unwrap().duration_ms, 120);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preserves_transition_when() {
+        let (dir, path) = write_skin_json(
+            "transition-when",
+            r#"{
+              "name":"Headspace",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[{
+                      "type":"subview",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "transition":{"durationMs":400,"easing":"linear"},
+                      "transitionWhen":{"view.intro.showing":{"durationMs":0}},
+                      "children":[]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        let manifest = read_skin_manifest(&path).unwrap();
+        validate_skin_contribution_at(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Subview(node) = &canvas.children[0] else {
+            panic!("expected subview");
+        };
+        let when = node.transition_when.as_ref().unwrap();
+        assert_eq!(when["view.intro.showing"].duration_ms, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_unknown_transition_when_bind() {
+        let (dir, path) = write_skin_json(
+            "bad-transition-when",
+            r#"{
+              "name":"Vanilla",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"row",
+                    "children":[],
+                    "transitionWhen":{"nope.foo":{"durationMs":0}}
+                  }
+                }
+              }
+            }"#,
+        );
+        let err = validate_skin_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("transitionWhen") && err.contains("nope.foo"),
+            "unexpected error: {err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

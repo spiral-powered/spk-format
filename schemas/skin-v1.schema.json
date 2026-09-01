@@ -305,6 +305,7 @@
         "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
         "transition": { "$ref": "#/$defs/layoutTransition" },
+        "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
         "dragRegion": {
           "type": "boolean",
           "description": "When true, pointer events on this container move the skin window."
@@ -341,6 +342,7 @@
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -379,6 +381,7 @@
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -525,13 +528,19 @@
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
         "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
-        "transition": { "$ref": "#/$defs/layoutTransition" }
+        "transition": { "$ref": "#/$defs/layoutTransition" },
+        "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
       }
     },
     "styleWhen": {
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/nodeStyle" },
       "description": "Bind path → style overlay when truthy (last match wins, shallow merge onto style). Typical key: hover.{nodeId}."
+    },
+    "transitionWhen": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/layoutTransition" },
+      "description": "Bind path → transition overlay when truthy (last match wins, shallow merge onto transition). Typical use: durationMs 0 to snap while parked."
     },
     "layoutTransition": {
       "type": "object",
@@ -594,6 +603,7 @@
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true, pointer events on this container move the skin window."
@@ -628,6 +638,7 @@
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "passthrough": {
               "type": "boolean",
               "description": "When true, the group bounds box does not capture pointer events (children still do)."
@@ -665,7 +676,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -691,7 +703,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -889,6 +902,7 @@
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
             "objectFit": {
               "type": "string",
               "enum": ["cover", "contain", "fill"],
@@ -926,7 +940,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -967,7 +982,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1035,7 +1051,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1057,7 +1074,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1079,7 +1097,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1132,7 +1151,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1234,7 +1254,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1273,7 +1294,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1312,7 +1334,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1351,7 +1374,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
@@ -1395,7 +1419,8 @@
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
-            "transition": { "$ref": "#/$defs/layoutTransition" }
+            "transition": { "$ref": "#/$defs/layoutTransition" },
+            "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
           }
         }
       ]
