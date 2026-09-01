@@ -466,6 +466,8 @@ pub struct SubviewFields {
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on_hover_leave: Option<Vec<SkinClickEffect>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -2185,6 +2187,7 @@ fn validate_layout_node(
         LayoutNode::Subview(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
             validate_bounds(&f.bounds, "bounds", errors);
+            validate_click_effects(f.on_hover_leave.as_deref(), ctx, errors);
         }
         LayoutNode::Decoration(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
@@ -3380,6 +3383,51 @@ mod tests {
             sound_when.get("view.shutter.open").map(String::as_str),
             Some("close")
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn preserves_subview_on_hover_leave() {
+        let (dir, path) = write_skin_json(
+            "hover-leave",
+            r#"{
+              "name":"T3",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"canvas",
+                    "width":10,
+                    "height":10,
+                    "children":[{
+                      "type":"subview",
+                      "id":"cMenuHotspot",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "children":[],
+                      "onHoverLeave":[{
+                        "action":"view.applyStateEvent",
+                        "payload":{"variable":"menuMode","event":"collapse"}
+                      }]
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Subview(subview) = &canvas.children[0] else {
+            panic!("expected subview");
+        };
+        let effects = subview
+            .on_hover_leave
+            .as_ref()
+            .expect("onHoverLeave dropped");
+        assert_eq!(effects[0].action, "view.applyStateEvent");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

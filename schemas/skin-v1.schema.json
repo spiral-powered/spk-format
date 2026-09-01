@@ -570,7 +570,12 @@
         "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
         "transition": { "$ref": "#/$defs/layoutTransition" },
-        "transitionWhen": { "$ref": "#/$defs/transitionWhen" }
+        "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
+        "onHoverLeave": {
+          "type": "array",
+          "description": "Effects when hover.{id} goes false (pointer leave or hide). Same shape as onClick. Requires id.",
+          "items": { "$ref": "#/$defs/skinClickEffect" }
+        }
       }
     },
     "styleWhen": {
@@ -680,6 +685,11 @@
             "animations": { "type": "object" },
             "transition": { "$ref": "#/$defs/layoutTransition" },
             "transitionWhen": { "$ref": "#/$defs/transitionWhen" },
+            "onHoverLeave": {
+              "type": "array",
+              "description": "Effects when hover.{id} goes false (pointer leave or hide). Same shape as onClick. Requires id.",
+              "items": { "$ref": "#/$defs/skinClickEffect" }
+            },
             "passthrough": {
               "type": "boolean",
               "description": "When true, the group bounds box does not capture pointer events (children still do)."
