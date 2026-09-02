@@ -1395,14 +1395,6 @@ fn validate_click_effects(
     }
 }
 
-fn validate_lifecycle_effects(
-    effects: Option<&[SkinLifecycleEffect]>,
-    ctx: &SkinValidationCtx<'_>,
-    errors: &mut Vec<String>,
-) {
-    validate_click_effects(effects, ctx, errors);
-}
-
 fn validate_thumb_assets(
     thumb: &ThumbAssets,
     pack_dir: &Path,
@@ -1624,7 +1616,7 @@ fn validate_presentation(
             asset, on_complete, ..
         } => {
             validate_skin_asset_file(asset, pack_dir, "gif asset", errors);
-            validate_lifecycle_effects(on_complete.as_deref(), ctx, errors);
+            validate_click_effects(on_complete.as_deref(), ctx, errors);
         }
         Presentation::Css { stylesheet, .. } => {
             if let Some(sheet) = stylesheet {
@@ -2553,7 +2545,7 @@ pub fn validate_skin_manifest(manifest: &SkinManifest, pack_dir: &Path) -> Resul
                 ));
             }
         }
-        validate_lifecycle_effects(view.on_activate.as_deref(), &ctx, &mut errors);
+        validate_click_effects(view.on_activate.as_deref(), &ctx, &mut errors);
         if let Some(state) = &view.state {
             for spec in state.values() {
                 if let Some(on) = &spec.on {
