@@ -201,6 +201,51 @@ impl SkinCondition {
     }
 }
 
+/// Bind map or ordered `{ when, …overlay }` list. Last match wins.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum OverlayWhen<T> {
+    Map(HashMap<String, T>),
+    List(Vec<WhenOverlay<T>>),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WhenOverlay<T> {
+    pub when: SkinCondition,
+    #[serde(flatten)]
+    pub overlay: T,
+}
+
+impl<T> OverlayWhen<T> {
+    fn validate(
+        &self,
+        field: &str,
+        ctx: &SkinValidationCtx<'_>,
+        errors: &mut Vec<String>,
+        mut validate_overlay: impl FnMut(&T, &str, &mut Vec<String>),
+    ) {
+        match self {
+            OverlayWhen::Map(map) => {
+                for (path, overlay) in map {
+                    validate_bind(Some(path.as_str()), field, ctx, errors);
+                    validate_overlay(overlay, &format!("{field}.{path}"), errors);
+                }
+            }
+            OverlayWhen::List(rows) => {
+                for (index, row) in rows.iter().enumerate() {
+                    row.when.validate_leaves(
+                        &format!("{field}[{index}].when"),
+                        ctx,
+                        errors,
+                    );
+                    validate_overlay(&row.overlay, &format!("{field}[{index}]"), errors);
+                }
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SkinClickEffect {
@@ -284,7 +329,7 @@ pub struct CanvasFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub width: u32,
     pub height: u32,
     pub children: Vec<LayoutNode>,
@@ -295,7 +340,7 @@ pub struct CanvasFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -421,7 +466,7 @@ pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub position: Option<String>,
@@ -430,7 +475,7 @@ pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -438,7 +483,7 @@ pub struct ContainerFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -451,11 +496,11 @@ pub struct SubviewFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub bounds: LayoutBounds,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -465,7 +510,7 @@ pub struct SubviewFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_hover_leave: Option<Vec<SkinClickEffect>>,
 }
@@ -480,12 +525,12 @@ pub struct DecorationFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub drag_region: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -493,7 +538,7 @@ pub struct DecorationFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -610,7 +655,7 @@ pub struct TiledFrameFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: TiledFramePresentation,
     pub children: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -620,7 +665,7 @@ pub struct TiledFrameFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -653,18 +698,18 @@ pub struct ButtonGroupFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: Presentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -694,7 +739,7 @@ pub struct SlideshowFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: SlideshowPresentation,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
@@ -703,7 +748,7 @@ pub struct SlideshowFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -747,7 +792,7 @@ pub struct ScrollStripFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     pub presentation: ScrollStripPresentation,
     pub bounds: LayoutBounds,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -755,7 +800,7 @@ pub struct ScrollStripFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -768,7 +813,7 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_click: Option<Vec<SkinClickEffect>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -789,7 +834,7 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     /// Artwork only: CSS `object-fit`. Validated in `validate_layout_node`.
@@ -798,7 +843,7 @@ pub struct ControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 /// What a slider writes. Omit for decorative/unbound thumbs.
@@ -838,7 +883,7 @@ pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bind: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -848,13 +893,13 @@ pub struct TextControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -867,7 +912,7 @@ pub struct InputControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub placeholder: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -879,13 +924,13 @@ pub struct InputControlFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1050,7 +1095,7 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub style_when: Option<HashMap<String, NodeStyle>>,
+    pub style_when: Option<OverlayWhen<NodeStyle>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub playing_row_style: Option<NodeStyle>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1074,13 +1119,13 @@ pub struct PlaylistFields {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds: Option<LayoutBounds>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub bounds_when: Option<HashMap<String, LayoutBoundsOverride>>,
+    pub bounds_when: Option<OverlayWhen<LayoutBoundsOverride>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible_when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub transition: Option<LayoutTransition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub transition_when: Option<HashMap<String, LayoutTransition>>,
+    pub transition_when: Option<OverlayWhen<LayoutTransition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1797,7 +1842,7 @@ fn view_layout_style(layout: &ViewLayout) -> Option<&NodeStyle> {
     }
 }
 
-fn view_layout_style_when(layout: &ViewLayout) -> Option<&HashMap<String, NodeStyle>> {
+fn view_layout_style_when(layout: &ViewLayout) -> Option<&OverlayWhen<NodeStyle>> {
     match layout {
         ViewLayout::Canvas(f) => f.style_when.as_ref(),
         ViewLayout::Row(f) | ViewLayout::Column(f) => f.style_when.as_ref(),
@@ -1806,7 +1851,7 @@ fn view_layout_style_when(layout: &ViewLayout) -> Option<&HashMap<String, NodeSt
 
 fn view_layout_transition_when(
     layout: &ViewLayout,
-) -> Option<&HashMap<String, LayoutTransition>> {
+) -> Option<&OverlayWhen<LayoutTransition>> {
     match layout {
         ViewLayout::Canvas(f) => f.transition_when.as_ref(),
         ViewLayout::Row(f) | ViewLayout::Column(f) => f.transition_when.as_ref(),
@@ -1859,7 +1904,7 @@ fn layout_node_transition(node: &LayoutNode) -> Option<&LayoutTransition> {
     }
 }
 
-fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyle>> {
+fn layout_node_style_when(node: &LayoutNode) -> Option<&OverlayWhen<NodeStyle>> {
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             f.style_when.as_ref()
@@ -1883,9 +1928,35 @@ fn layout_node_style_when(node: &LayoutNode) -> Option<&HashMap<String, NodeStyl
     }
 }
 
+fn layout_node_bounds_when(
+    node: &LayoutNode,
+) -> Option<&OverlayWhen<LayoutBoundsOverride>> {
+    match node {
+        LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
+            f.bounds_when.as_ref()
+        }
+        LayoutNode::Subview(f) => f.bounds_when.as_ref(),
+        LayoutNode::Decoration(f) => f.bounds_when.as_ref(),
+        LayoutNode::Button(f)
+        | LayoutNode::Artwork(f)
+        | LayoutNode::Transport(f)
+        | LayoutNode::Visualizer(f)
+        | LayoutNode::Rating(f)
+        | LayoutNode::Time(f) => f.bounds_when.as_ref(),
+        LayoutNode::Slider(f) => f.base.bounds_when.as_ref(),
+        LayoutNode::ButtonGroup(f) => f.bounds_when.as_ref(),
+        LayoutNode::Text(f) => f.bounds_when.as_ref(),
+        LayoutNode::Input(f) => f.bounds_when.as_ref(),
+        LayoutNode::Playlist(f) => f.bounds_when.as_ref(),
+        LayoutNode::TiledFrame(_) | LayoutNode::Slideshow(_) | LayoutNode::ScrollStrip(_) => {
+            None
+        }
+    }
+}
+
 fn layout_node_transition_when(
     node: &LayoutNode,
-) -> Option<&HashMap<String, LayoutTransition>> {
+) -> Option<&OverlayWhen<LayoutTransition>> {
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             f.transition_when.as_ref()
@@ -1919,31 +1990,40 @@ fn view_layout_transition(layout: &ViewLayout) -> Option<&LayoutTransition> {
 const LAYOUT_EASINGS: &[&str] = &["linear", "ease", "ease-in", "ease-out", "ease-in-out"];
 
 fn validate_style_when(
-    when: Option<&HashMap<String, NodeStyle>>,
+    when: Option<&OverlayWhen<NodeStyle>>,
     ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     let Some(when) = when else {
         return;
     };
-    for (path, style) in when {
-        validate_bind(Some(path.as_str()), "styleWhen", ctx, errors);
-        validate_node_style(Some(style), &format!("styleWhen.{path}"), errors);
-    }
+    when.validate("styleWhen", ctx, errors, |style, field, errors| {
+        validate_node_style(Some(style), field, errors);
+    });
 }
 
 fn validate_transition_when(
-    when: Option<&HashMap<String, LayoutTransition>>,
+    when: Option<&OverlayWhen<LayoutTransition>>,
     ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
     let Some(when) = when else {
         return;
     };
-    for (path, transition) in when {
-        validate_bind(Some(path.as_str()), "transitionWhen", ctx, errors);
-        validate_layout_transition(Some(transition), &format!("transitionWhen.{path}"), errors);
-    }
+    when.validate("transitionWhen", ctx, errors, |transition, field, errors| {
+        validate_layout_transition(Some(transition), field, errors);
+    });
+}
+
+fn validate_bounds_when(
+    when: Option<&OverlayWhen<LayoutBoundsOverride>>,
+    ctx: &SkinValidationCtx<'_>,
+    errors: &mut Vec<String>,
+) {
+    let Some(when) = when else {
+        return;
+    };
+    when.validate("boundsWhen", ctx, errors, |_, _, _| {});
 }
 
 fn validate_layout_transition(
@@ -2150,6 +2230,7 @@ fn validate_view_layout(
         }
         ViewLayout::Row(f) | ViewLayout::Column(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
+            validate_bounds_when(f.bounds_when.as_ref(), ctx, errors);
             if let Some(bounds) = &f.bounds {
                 validate_bounds(bounds, "bounds", errors);
             }
@@ -2177,6 +2258,7 @@ fn validate_layout_node(
     validate_style_when(layout_node_style_when(node), ctx, errors);
     validate_layout_transition(layout_node_transition(node), "transition", errors);
     validate_transition_when(layout_node_transition_when(node), ctx, errors);
+    validate_bounds_when(layout_node_bounds_when(node), ctx, errors);
     match node {
         LayoutNode::Row(f) | LayoutNode::Column(f) | LayoutNode::Overlay(f) => {
             validate_condition(f.visible_when.as_ref(), "visibleWhen", ctx, errors);
@@ -3245,6 +3327,59 @@ mod tests {
     }
 
     #[test]
+    fn accepts_style_when_list_with_compound_condition() {
+        let (dir, path) = write_skin_json(
+            "style-when-list",
+            r##"{
+              "name":"Lost Planet",
+              "author":"a",
+              "description":"",
+              "views":{
+                "main":{
+                  "state":{
+                    "galleryPhase":{"default":"grid"}
+                  },
+                  "layout":{
+                    "type":"canvas",
+                    "width":100,
+                    "height":80,
+                    "children":[{
+                      "type":"button",
+                      "id":"thumb1",
+                      "bounds":{"x":0,"y":0,"w":10,"h":10},
+                      "style":{"opacity":0},
+                      "styleWhen":[
+                        {"when":"view.galleryPhase.grid","opacity":0.71},
+                        {"when":{"all":["view.galleryPhase.grid","hover.thumb1"]},"opacity":1}
+                      ],
+                      "presentation":{"kind":"primitive","variant":"plain"}
+                    }]
+                  }
+                }
+              }
+            }"##,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Canvas(canvas) = &manifest.views["main"].layout else {
+            panic!("expected canvas");
+        };
+        let LayoutNode::Button(node) = &canvas.children[0] else {
+            panic!("expected button");
+        };
+        let OverlayWhen::List(rows) = node.style_when.as_ref().unwrap() else {
+            panic!("expected styleWhen list");
+        };
+        assert_eq!(rows.len(), 2);
+        assert!(matches!(
+            rows[1].when,
+            SkinCondition::All { ref all } if all.len() == 2
+        ));
+        assert_eq!(rows[1].overlay.opacity, Some(1.0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
     fn accepts_artwork_object_fit() {
         let (dir, path) = write_skin_json(
             "artwork-object-fit",
@@ -3869,7 +4004,9 @@ mod tests {
         let LayoutNode::Subview(node) = &canvas.children[0] else {
             panic!("expected subview");
         };
-        let when = node.transition_when.as_ref().unwrap();
+        let OverlayWhen::Map(when) = node.transition_when.as_ref().unwrap() else {
+            panic!("expected transitionWhen map");
+        };
         assert_eq!(when["view.intro.showing"].duration_ms, 0);
         let _ = std::fs::remove_dir_all(&dir);
     }

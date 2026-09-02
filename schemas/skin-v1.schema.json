@@ -369,10 +369,7 @@
               "description": "Horizontal flex container. Valid as a view layout root or as a nested child."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -408,10 +405,7 @@
               "description": "Vertical flex container. Valid as a view layout root or as a nested child."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -562,10 +556,7 @@
         },
         "style": { "$ref": "#/$defs/nodeStyle" },
         "bounds": { "$ref": "#/$defs/layoutBounds" },
-        "boundsWhen": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-        },
+        "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
         "visibleWhen": { "$ref": "#/$defs/skinCondition" },
         "styleWhen": { "$ref": "#/$defs/styleWhen" },
         "animations": { "type": "object" },
@@ -579,14 +570,109 @@
       }
     },
     "styleWhen": {
+      "description": "Style overlays when a condition is truthy (last match wins, shallow merge onto style). Bind map or ordered { when, …style } list.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/nodeStyle" }
+        },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/styleWhenRow" }
+        }
+      ]
+    },
+    "styleWhenRow": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/nodeStyle" },
-      "description": "Bind path → style overlay when truthy (last match wins, shallow merge onto style). Typical key: hover.{nodeId}."
+      "required": ["when"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/skinCondition" },
+        "color": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fontSize": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "fontWeight": {
+          "oneOf": [
+            { "type": "string", "enum": ["normal", "bold"] },
+            { "type": "integer", "minimum": 100, "maximum": 900 }
+          ]
+        },
+        "textAlign": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        },
+        "backgroundColor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
     },
     "transitionWhen": {
+      "description": "Transition overlays when a condition is truthy (last match wins, shallow merge onto transition). Bind map or ordered { when, …transition } list.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/layoutTransition" }
+        },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transitionWhenRow" }
+        }
+      ]
+    },
+    "transitionWhenRow": {
       "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/layoutTransition" },
-      "description": "Bind path → transition overlay when truthy (last match wins, shallow merge onto transition). Typical use: durationMs 0 to snap while parked."
+      "required": ["when", "durationMs"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/skinCondition" },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "easing": {
+          "type": "string",
+          "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"]
+        }
+      }
+    },
+    "boundsWhen": {
+      "description": "Bounds overlays when a condition is truthy (last match wins, shallow merge onto bounds). Bind map or ordered { when, …bounds } list.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
+        },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/boundsWhenRow" }
+        }
+      ]
+    },
+    "boundsWhenRow": {
+      "type": "object",
+      "required": ["when"],
+      "additionalProperties": false,
+      "properties": {
+        "when": { "$ref": "#/$defs/skinCondition" },
+        "x": { "type": "number" },
+        "right": { "type": "number" },
+        "y": { "type": "number" },
+        "bottom": { "type": "number" },
+        "w": { "type": "number", "minimum": 1 },
+        "h": { "type": "number", "minimum": 1 },
+        "zIndex": { "type": "integer" }
+      }
     },
     "layoutTransition": {
       "type": "object",
@@ -635,10 +721,7 @@
               "description": "Nested grouping container. Children overlay in place. Not valid as a view layout root."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -672,10 +755,7 @@
             "style": { "$ref": "#/$defs/nodeStyle" },
             "type": { "const": "subview" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "children": {
               "type": "array",
               "items": { "$ref": "#/$defs/layoutNode" }
@@ -716,10 +796,7 @@
             "type": { "const": "decoration" },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "dragRegion": {
               "type": "boolean",
               "description": "When true on a canvas view, marks a window drag handle"
@@ -945,10 +1022,7 @@
             },
             "presentation": { "$ref": "#/$defs/presentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -984,10 +1058,7 @@
               "description": "Runtime overflow behavior. Typography lives in style."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1026,10 +1097,7 @@
               "items": { "$ref": "#/$defs/skinClickEffect" }
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1095,10 +1163,7 @@
               "description": "Initial playlist source. Default all. Runtime source still follows playlist.setSource after mount."
             },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1298,10 +1363,7 @@
             },
             "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1338,10 +1400,7 @@
             },
             "presentation": { "$ref": "#/$defs/sliderVolumeSeekPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1378,10 +1437,7 @@
             },
             "presentation": { "$ref": "#/$defs/sliderVolumeSeekPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1418,10 +1474,7 @@
             },
             "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
@@ -1463,10 +1516,7 @@
             },
             "presentation": { "$ref": "#/$defs/sliderBitmapStripPresentation" },
             "bounds": { "$ref": "#/$defs/layoutBounds" },
-            "boundsWhen": {
-              "type": "object",
-              "additionalProperties": { "$ref": "#/$defs/layoutBoundsPartial" }
-            },
+            "boundsWhen": { "$ref": "#/$defs/boundsWhen" },
             "visibleWhen": { "$ref": "#/$defs/skinCondition" },
             "styleWhen": { "$ref": "#/$defs/styleWhen" },
             "animations": { "type": "object" },
