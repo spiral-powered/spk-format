@@ -624,6 +624,8 @@ pub struct TiledFrameExplicitPresentation {
     pub kind: String,
     pub content_inset: TiledFrameContentInset,
     pub tiles: Vec<TiledFrameTileDef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_corner_radius: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -634,6 +636,8 @@ pub struct TiledFramePresetPresentation {
     pub tile_sizes: TiledFrameTileSizes,
     pub frame_thickness: f64,
     pub content_inset: TiledFrameContentInset,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_corner_radius: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1483,6 +1487,12 @@ fn validate_tiled_frame_presentation(
             if explicit.tiles.is_empty() {
                 errors.push("tiledFrame tiles must not be empty".to_string());
             }
+            if explicit
+                .content_corner_radius
+                .is_some_and(|radius| radius < 0.0)
+            {
+                errors.push("tiledFrame contentCornerRadius must be non-negative".to_string());
+            }
             for (index, tile) in explicit.tiles.iter().enumerate() {
                 validate_tiled_frame_asset(
                     &tile.asset,
@@ -1501,6 +1511,12 @@ fn validate_tiled_frame_presentation(
             }
             if preset.frame_thickness <= 0.0 {
                 errors.push("tiledFrame frameThickness must be positive".to_string());
+            }
+            if preset
+                .content_corner_radius
+                .is_some_and(|radius| radius < 0.0)
+            {
+                errors.push("tiledFrame contentCornerRadius must be non-negative".to_string());
             }
             let assets = &preset.assets;
             validate_tiled_frame_asset(&assets.top_left, pack_dir, "assets.topLeft", errors);

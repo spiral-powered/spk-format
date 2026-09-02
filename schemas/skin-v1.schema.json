@@ -922,7 +922,8 @@
           }
         },
         "frameThickness": { "type": "number", "minimum": 1 },
-        "contentInset": { "$ref": "#/$defs/tiledFrameContentInset" }
+        "contentInset": { "$ref": "#/$defs/tiledFrameContentInset" },
+        "contentCornerRadius": { "type": "number", "minimum": 0 }
       }
     },
     "tiledFrameExplicitPresentation": {
@@ -932,6 +933,7 @@
       "properties": {
         "kind": { "const": "tiledFrame" },
         "contentInset": { "$ref": "#/$defs/tiledFrameContentInset" },
+        "contentCornerRadius": { "type": "number", "minimum": 0 },
         "tiles": {
           "type": "array",
           "minItems": 1,
