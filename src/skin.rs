@@ -253,24 +253,15 @@ pub struct SkinClickEffect {
     pub when: Option<SkinCondition>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub delay_ms: Option<u64>,
-    pub action: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub payload: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct SkinLifecycleEffect {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub when: Option<SkinCondition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delay_ms: Option<u64>,
-    pub action: String,
+    pub action: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub payload: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sound: Option<String>,
 }
+
+pub type SkinLifecycleEffect = SkinClickEffect;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1393,7 +1384,12 @@ fn validate_click_effects(
 ) {
     if let Some(effects) = effects {
         for effect in effects {
-            validate_action(Some(effect.action.as_str()), errors);
+            let action = effect.action.as_deref().filter(|value| !value.is_empty());
+            let sound = effect.sound.as_deref().filter(|value| !value.is_empty());
+            if action.is_none() && sound.is_none() {
+                errors.push("effect must declare action and/or sound".to_string());
+            }
+            validate_action(action, errors);
             validate_condition(effect.when.as_ref(), "when", ctx, errors);
         }
     }
@@ -1404,12 +1400,7 @@ fn validate_lifecycle_effects(
     ctx: &SkinValidationCtx<'_>,
     errors: &mut Vec<String>,
 ) {
-    if let Some(effects) = effects {
-        for effect in effects {
-            validate_action(Some(effect.action.as_str()), errors);
-            validate_condition(effect.when.as_ref(), "when", ctx, errors);
-        }
-    }
+    validate_click_effects(effects, ctx, errors);
 }
 
 fn validate_thumb_assets(
@@ -3562,7 +3553,7 @@ mod tests {
             .on_hover_leave
             .as_ref()
             .expect("onHoverLeave dropped");
-        assert_eq!(effects[0].action, "view.applyStateEvent");
+        assert_eq!(effects[0].action.as_deref(), Some("view.applyStateEvent"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3843,7 +3834,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_sound_on_click_effect() {
+    fn accepts_sound_on_click_effect() {
         let (dir, path) = write_skin_json(
             "onclick-sound",
             r#"{
@@ -3856,7 +3847,48 @@ mod tests {
                     "type":"column",
                     "children":[{
                       "type":"button",
-                      "onClick":[{"action":"skin.openPicker","sound":"button"}],
+                      "onClick":[
+                        {"action":"skin.openPicker"},
+                        {"delayMs":500,"sound":"button"}
+                      ],
+                      "presentation":{"kind":"primitive"}
+                    }]
+                  }
+                }
+              }
+            }"#,
+        );
+        validate_skin_contribution_at(&path).unwrap();
+        let manifest = read_skin_manifest(&path).unwrap();
+        let ViewLayout::Column(column) = &manifest.views["main"].layout else {
+            panic!("expected column");
+        };
+        let LayoutNode::Button(button) = &column.children[0] else {
+            panic!("expected button");
+        };
+        let effects = button.on_click.as_ref().expect("onClick dropped");
+        assert_eq!(effects[0].action.as_deref(), Some("skin.openPicker"));
+        assert_eq!(effects[1].delay_ms, Some(500));
+        assert_eq!(effects[1].sound.as_deref(), Some("button"));
+        assert!(effects[1].action.is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn rejects_effect_without_action_or_sound() {
+        let (dir, path) = write_skin_json(
+            "empty-effect",
+            r#"{
+              "name":"Vanilla",
+              "author":"Spiral",
+              "description":"",
+              "views":{
+                "main":{
+                  "layout":{
+                    "type":"column",
+                    "children":[{
+                      "type":"button",
+                      "onClick":[{"delayMs":500}],
                       "presentation":{"kind":"primitive"}
                     }]
                   }
@@ -3866,7 +3898,7 @@ mod tests {
         );
         let err = validate_skin_contribution_at(&path).unwrap_err();
         assert!(
-            err.contains("sound") || err.contains("valid skin JSON"),
+            err.contains("action") || err.contains("sound") || err.contains("valid skin JSON"),
             "unexpected error: {err}"
         );
         let _ = std::fs::remove_dir_all(&dir);

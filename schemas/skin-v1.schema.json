@@ -236,35 +236,12 @@
     },
     "skinClickEffect": {
       "type": "object",
-      "required": ["action"],
       "additionalProperties": false,
-      "description": "Click-handler step. Click wavs stay on the control (sound / soundWhen), not here.",
-      "properties": {
-        "when": {
-          "$ref": "#/$defs/skinCondition",
-          "description": "Condition; effect runs only when truthy (same evaluator as visibleWhen)."
-        },
-        "delayMs": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Wait after click before dispatch (default 0)."
-        },
-        "action": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Existing skin action id (e.g. view.applyStateEvent)."
-        },
-        "payload": {
-          "type": "object",
-          "description": "Merged into action payload (viewId, url, variable, event, …)."
-        }
-      }
-    },
-    "skinLifecycleEffect": {
-      "type": "object",
-      "required": ["action"],
-      "additionalProperties": false,
-      "description": "View onActivate or GIF onComplete step. May play a sound with the action.",
+      "description": "Click, hover-leave, onChange, onActivate, or GIF onComplete step. Immediate click wavs stay on the control (sound / soundWhen). Effect-level sound is for timed cues.",
+      "anyOf": [
+        { "required": ["action"] },
+        { "required": ["sound"] }
+      ],
       "properties": {
         "when": {
           "$ref": "#/$defs/skinCondition",
@@ -278,18 +255,21 @@
         "action": {
           "type": "string",
           "minLength": 1,
-          "description": "Existing skin action id (e.g. view.setVariable)."
+          "description": "Existing skin action id (e.g. view.applyStateEvent)."
         },
         "payload": {
           "type": "object",
-          "description": "Merged into action payload."
+          "description": "Merged into action payload (viewId, url, variable, event, …)."
         },
         "sound": {
           "type": "string",
           "minLength": 1,
-          "description": "Manifest soundEffects key played before the action."
+          "description": "Manifest soundEffects key played when the effect fires (before the action, if any)."
         }
       }
+    },
+    "skinLifecycleEffect": {
+      "$ref": "#/$defs/skinClickEffect"
     },
     "viewLayout": {
       "description": "View layout root. canvas = absolute bounds stage; row/column = flow flex tree. overlay, tiledFrame, and subview are children only.",
