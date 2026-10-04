@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-const SURFACE_DEFAULT: &str = "default";
-const KNOWN_LAYER_KINDS: &[&str] = &["canvas", "webgl", "image", "video", "group"];
+const SCENE_DEFAULT: &str = "default";
+const KNOWN_LAYER_KINDS: &[&str] = &["canvas", "webgl", "image", "video"];
 const IMAGE_EXTENSIONS: &[&str] = &["png", "webp", "gif"];
 const VIDEO_EXTENSIONS: &[&str] = &["webm", "mp4"];
 
@@ -143,34 +143,34 @@ pub struct VizManifest {
     /// Raster only (`ALLOWED_PREVIEW_EXTENSIONS`); SVG is not permitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
-    pub surfaces: HashMap<String, VizSurfaceProfile>,
+    pub scenes: HashMap<String, VizSceneProfile>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct VizSurfaceProfile {
-    pub scene: Vec<serde_json::Value>,
+pub struct VizSceneProfile {
+    pub children: Vec<serde_json::Value>,
 }
 
-pub fn normalize_surfaces(
-    resolved: HashMap<String, VizSurfaceProfile>,
+pub fn normalize_scenes(
+    resolved: HashMap<String, VizSceneProfile>,
     prefix: &str,
-) -> Result<HashMap<String, VizSurfaceProfile>, String> {
+) -> Result<HashMap<String, VizSceneProfile>, String> {
     for key in resolved.keys() {
-        if key.as_str() != SURFACE_DEFAULT {
-            return Err(format!("{prefix}.{key} is not a known surface (default)"));
+        if key.as_str() != SCENE_DEFAULT {
+            return Err(format!("{prefix}.{key} is not a known scene (default)"));
         }
     }
 
-    if !resolved.contains_key(SURFACE_DEFAULT) {
-        return Err(format!("{prefix}.{SURFACE_DEFAULT} is required"));
+    if !resolved.contains_key(SCENE_DEFAULT) {
+        return Err(format!("{prefix}.{SCENE_DEFAULT} is required"));
     }
 
     Ok(resolved)
 }
 
 pub fn normalize_viz_manifest(mut manifest: VizManifest) -> Result<VizManifest, String> {
-    manifest.surfaces = normalize_surfaces(manifest.surfaces, "surfaces")?;
+    manifest.scenes = normalize_scenes(manifest.scenes, "scenes")?;
     Ok(manifest)
 }
 
@@ -208,11 +208,6 @@ fn validate_scene_layer(
             } else {
                 validate_layer_entry(pack_dir, entry, prefix, errors);
             }
-            if let Some(params) = layer.get("params") {
-                if !params.is_object() {
-                    errors.push(format!("{prefix}.params must be an object"));
-                }
-            }
         }
         "image" | "video" => {
             let asset = match layer.get("asset").and_then(|v| v.as_str()) {
@@ -224,43 +219,29 @@ fn validate_scene_layer(
             };
             validate_media_asset(pack_dir, asset, kind, prefix, errors);
         }
-        "group" => {
-            if let Some(children) = layer.get("children").and_then(|v| v.as_array()) {
-                for (index, child) in children.iter().enumerate() {
-                    validate_scene_layer(
-                        child,
-                        pack_dir,
-                        &format!("{prefix}.children[{index}]"),
-                        errors,
-                    );
-                }
-            } else {
-                errors.push(format!("{prefix}.children is required for group layers"));
-            }
-        }
         _ => {}
     }
 }
 
-fn validate_surface_profile(
-    surface: &str,
-    profile: &VizSurfaceProfile,
+fn validate_scene_profile(
+    scene: &str,
+    profile: &VizSceneProfile,
     prefix: &str,
     pack_dir: &Path,
     errors: &mut Vec<String>,
 ) {
-    if profile.scene.is_empty() {
+    if profile.children.is_empty() {
         errors.push(format!(
-            "{prefix}.{surface}.scene must contain at least one layer"
+            "{prefix}.{scene}.children must contain at least one layer"
         ));
         return;
     }
 
-    for (index, layer) in profile.scene.iter().enumerate() {
+    for (index, layer) in profile.children.iter().enumerate() {
         validate_scene_layer(
             layer,
             pack_dir,
-            &format!("{prefix}.{surface}.scene[{index}]"),
+            &format!("{prefix}.{scene}.children[{index}]"),
             errors,
         );
     }
@@ -285,8 +266,8 @@ pub fn validate_visualizer_contribution_at(manifest_path: &Path) -> Result<(), S
 fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors = Vec::new();
 
-    for (surface, profile) in &manifest.surfaces {
-        validate_surface_profile(surface, profile, "surfaces", pack_dir, &mut errors);
+    for (scene, profile) in &manifest.scenes {
+        validate_scene_profile(scene, profile, "scenes", pack_dir, &mut errors);
     }
 
     if let Some(preview) = &manifest.preview {
@@ -320,9 +301,9 @@ mod tests {
               "name": "Bars",
               "author": "Spiral",
               "description": "test",
-              "surfaces": {
+              "scenes": {
                 "default": {
-                  "scene": [
+                  "children": [
                     { "kind": "canvas", "layout": "fill", "entry": "index.js" }
                   ]
                 }
@@ -339,9 +320,9 @@ mod tests {
               "name": "Bars",
               "author": "Spiral",
               "description": "test",
-              "surfaces": {
+              "scenes": {
                 "default": {
-                  "scene": [
+                  "children": [
                     { "kind": "canvas", "layout": "fill", "entry": "missing.js" }
                   ]
                 }
@@ -367,9 +348,9 @@ mod tests {
               "name": "Bars",
               "author": "Spiral",
               "description": "test",
-              "surfaces": {
+              "scenes": {
                 "default": {
-                  "scene": [
+                  "children": [
                     { "kind": "canvas", "layout": "fill", "entry": "../secret.js" }
                   ]
                 }
