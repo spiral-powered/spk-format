@@ -1,6 +1,5 @@
-//! Visualizer and renderer contribution validation.
+//! Visualizer contribution validation.
 
-use crate::is_kebab_slug;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -107,19 +106,31 @@ fn validate_media_asset(
     }
 }
 
-/// Effective renderer id: `authorId.packId.renderer.contributionId`.
-pub fn is_renderer_effective_id(value: &str) -> bool {
-    let parts: Vec<&str> = value.split('.').collect();
-    parts.len() == 4 && parts.iter().all(|p| is_kebab_slug(p)) && parts[2] == "renderer"
-}
-
+/// Safe relative JS entry under a visualizer contribution folder.
 pub fn is_safe_pack_relative_js(path: &str) -> bool {
     !path.is_empty()
         && path.ends_with(".js")
         && !path.contains("..")
+        && !path.contains('/')
+        && !path.contains('\\')
         && !path.starts_with('/')
-        && !path.starts_with('\\')
         && !Path::new(path).is_absolute()
+}
+
+fn validate_layer_entry(pack_dir: &Path, entry: &str, prefix: &str, errors: &mut Vec<String>) {
+    if !is_safe_pack_relative_js(entry) {
+        errors.push(format!(
+            "{prefix}.entry \"{entry}\" must be a relative .js filename in the visualizer folder"
+        ));
+        return;
+    }
+    let entry_path = pack_dir.join(entry);
+    if !entry_path.is_file() {
+        errors.push(format!(
+            "{prefix}.entry \"{entry}\" not found at {}",
+            entry_path.display()
+        ));
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -191,11 +202,11 @@ fn validate_scene_layer(
 
     match kind {
         "canvas" | "webgl" => {
-            let renderer = layer.get("renderer").and_then(|v| v.as_str()).unwrap_or("");
-            if !is_renderer_effective_id(renderer) {
-                errors.push(format!(
-                    "{prefix}.renderer \"{renderer}\" must be a fully-qualified renderer id (authorId.packId.renderer.id)"
-                ));
+            let entry = layer.get("entry").and_then(|v| v.as_str()).unwrap_or("");
+            if entry.is_empty() {
+                errors.push(format!("{prefix}.entry is required for {kind} layers"));
+            } else {
+                validate_layer_entry(pack_dir, entry, prefix, errors);
             }
             if let Some(params) = layer.get("params") {
                 if !params.is_object() {
@@ -290,87 +301,84 @@ fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), Stri
         Err(errors.join("\n"))
     }
 }
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct RendererManifestFile {
-    #[allow(dead_code)]
-    pub id: String,
-    pub engine: String,
-    pub entry: String,
-}
-
-/// Validate a renderer contribution at install / scan time.
-pub fn validate_renderer_contribution_at(manifest_path: &Path) -> Result<(), String> {
-    let contribution_dir = manifest_path.parent().ok_or_else(|| {
-        format!(
-            "renderer manifest has no parent directory: {}",
-            manifest_path.display()
-        )
-    })?;
-    let contents = fs::read_to_string(manifest_path)
-        .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
-    let manifest: RendererManifestFile = serde_json::from_str(&contents).map_err(|e| {
-        format!(
-            "{} is not valid renderer JSON: {e}",
-            manifest_path.display()
-        )
-    })?;
-
-    if manifest.engine != "canvas2d" && manifest.engine != "webgl" {
-        return Err(format!(
-            "{}: unsupported engine \"{}\" (expected canvas2d or webgl)",
-            manifest_path.display(),
-            manifest.engine
-        ));
-    }
-    if !is_safe_pack_relative_js(&manifest.entry) {
-        return Err(format!(
-            "{}: entry \"{}\" must be a relative .js filename",
-            manifest_path.display(),
-            manifest.entry
-        ));
-    }
-    let entry_path = contribution_dir.join(&manifest.entry);
-    if !entry_path.is_file() {
-        return Err(format!(
-            "{}: entry file not found at {}",
-            manifest_path.display(),
-            entry_path.display()
-        ));
-    }
-    Ok(())
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
-    fn renderer_rejects_bad_engine() {
-        let dir = std::env::temp_dir().join(format!("spk-renderer-bad-{}", std::process::id()));
+    fn canvas_layer_requires_entry_file() {
+        let dir = std::env::temp_dir().join(format!("spk-viz-entry-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let entry = dir.join("main.js");
-        std::fs::write(&entry, "export default {};").unwrap();
-        let path = dir.join("renderer.json");
-        std::fs::write(&path, r#"{"id":"bars","engine":"nope","entry":"main.js"}"#).unwrap();
-        let err = validate_renderer_contribution_at(&path).unwrap_err();
-        assert!(err.contains("unsupported engine"));
+        std::fs::write(dir.join("index.js"), "export function create() {}").unwrap();
+        let path = dir.join("viz.json");
+        std::fs::write(
+            &path,
+            r#"{
+              "id": "bars",
+              "name": "Bars",
+              "author": "Spiral",
+              "description": "test",
+              "surfaces": {
+                "default": {
+                  "scene": [
+                    { "kind": "canvas", "layout": "fill", "entry": "index.js" }
+                  ]
+                }
+              }
+            }"#,
+        )
+        .unwrap();
+        validate_visualizer_contribution_at(&path).unwrap();
+
+        std::fs::write(
+            &path,
+            r#"{
+              "id": "bars",
+              "name": "Bars",
+              "author": "Spiral",
+              "description": "test",
+              "surfaces": {
+                "default": {
+                  "scene": [
+                    { "kind": "canvas", "layout": "fill", "entry": "missing.js" }
+                  ]
+                }
+              }
+            }"#,
+        )
+        .unwrap();
+        let err = validate_visualizer_contribution_at(&path).unwrap_err();
+        assert!(err.contains("not found"), "{err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
-    fn renderer_accepts_canvas2d() {
-        let dir = std::env::temp_dir().join(format!("spk-renderer-ok-{}", std::process::id()));
+    fn canvas_layer_rejects_path_traversal_entry() {
+        let dir = std::env::temp_dir().join(format!("spk-viz-bad-entry-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("main.js"), "export default {};").unwrap();
-        let path = dir.join("renderer.json");
+        let path = dir.join("viz.json");
         std::fs::write(
             &path,
-            r#"{"id":"bars","engine":"canvas2d","entry":"main.js"}"#,
+            r#"{
+              "id": "bars",
+              "name": "Bars",
+              "author": "Spiral",
+              "description": "test",
+              "surfaces": {
+                "default": {
+                  "scene": [
+                    { "kind": "canvas", "layout": "fill", "entry": "../secret.js" }
+                  ]
+                }
+              }
+            }"#,
         )
         .unwrap();
-        validate_renderer_contribution_at(&path).unwrap();
+        let err = validate_visualizer_contribution_at(&path).unwrap_err();
+        assert!(err.contains("relative .js filename"), "{err}");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

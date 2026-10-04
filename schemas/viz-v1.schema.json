@@ -89,15 +89,16 @@
         "translateX": { "type": "number" },
         "translateY": { "type": "number" },
         "rotation": { "type": "number" },
-        "renderer": {
+        "entry": {
           "type": "string",
           "minLength": 1,
-          "description": "Fully-qualified renderer contribution id."
+          "pattern": "^[A-Za-z0-9._-]+\\.js$",
+          "description": "JS module path relative to this visualizer contribution folder (e.g. index.js)."
         },
         "params": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Opaque bag passed to the layer's VizRenderer. Keys and ranges are renderer-defined."
+          "description": "Opaque bag passed to the layer's draw module. Keys and ranges are module-defined."
         },
         "asset": {
           "$ref": "https://raw.githubusercontent.com/spiral-powered/spk-format/main/schemas/presentation-common.schema.json#/$defs/assetRef"
