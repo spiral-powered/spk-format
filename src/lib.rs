@@ -30,8 +30,8 @@ pub use skin::{
 pub use sound::validate_sound_contribution_at;
 pub use theme::{validate_theme_contribution_at, REQUIRED_THEME_TOKEN_KEYS};
 pub use visualizer::{
-    is_safe_media_asset_path, is_safe_pack_relative_js, normalize_viz_manifest,
-    validate_visualizer_contribution_at, VizManifest, VizSceneProfile,
+    is_safe_media_asset_path, is_safe_pack_relative_js, validate_visualizer_contribution_at,
+    VizManifest,
 };
 
 /// JSON Schema documents for pack and contribution manifests (source of truth).

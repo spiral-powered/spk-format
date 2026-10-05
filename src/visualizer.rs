@@ -1,11 +1,9 @@
 //! Visualizer contribution validation.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-const SCENE_DEFAULT: &str = "default";
 const KNOWN_LAYER_KINDS: &[&str] = &["canvas", "webgl", "image", "video"];
 const IMAGE_EXTENSIONS: &[&str] = &["png", "webp", "gif"];
 const VIDEO_EXTENSIONS: &[&str] = &["webm", "mp4"];
@@ -143,35 +141,7 @@ pub struct VizManifest {
     /// Raster only (`ALLOWED_PREVIEW_EXTENSIONS`); SVG is not permitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
-    pub scenes: HashMap<String, VizSceneProfile>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VizSceneProfile {
     pub children: Vec<serde_json::Value>,
-}
-
-pub fn normalize_scenes(
-    resolved: HashMap<String, VizSceneProfile>,
-    prefix: &str,
-) -> Result<HashMap<String, VizSceneProfile>, String> {
-    for key in resolved.keys() {
-        if key.as_str() != SCENE_DEFAULT {
-            return Err(format!("{prefix}.{key} is not a known scene (default)"));
-        }
-    }
-
-    if !resolved.contains_key(SCENE_DEFAULT) {
-        return Err(format!("{prefix}.{SCENE_DEFAULT} is required"));
-    }
-
-    Ok(resolved)
-}
-
-pub fn normalize_viz_manifest(mut manifest: VizManifest) -> Result<VizManifest, String> {
-    manifest.scenes = normalize_scenes(manifest.scenes, "scenes")?;
-    Ok(manifest)
 }
 
 fn validate_scene_layer(
@@ -223,27 +193,14 @@ fn validate_scene_layer(
     }
 }
 
-fn validate_scene_profile(
-    scene: &str,
-    profile: &VizSceneProfile,
-    prefix: &str,
-    pack_dir: &Path,
-    errors: &mut Vec<String>,
-) {
-    if profile.children.is_empty() {
-        errors.push(format!(
-            "{prefix}.{scene}.children must contain at least one layer"
-        ));
+fn validate_children(children: &[serde_json::Value], pack_dir: &Path, errors: &mut Vec<String>) {
+    if children.is_empty() {
+        errors.push("children must contain at least one layer".to_string());
         return;
     }
 
-    for (index, layer) in profile.children.iter().enumerate() {
-        validate_scene_layer(
-            layer,
-            pack_dir,
-            &format!("{prefix}.{scene}.children[{index}]"),
-            errors,
-        );
+    for (index, layer) in children.iter().enumerate() {
+        validate_scene_layer(layer, pack_dir, &format!("children[{index}]"), errors);
     }
 }
 
@@ -257,18 +214,15 @@ pub fn validate_visualizer_contribution_at(manifest_path: &Path) -> Result<(), S
     })?;
     let contents = fs::read_to_string(manifest_path)
         .map_err(|e| format!("could not read {}: {e}", manifest_path.display()))?;
-    let parsed: VizManifest = serde_json::from_str(&contents)
+    let manifest: VizManifest = serde_json::from_str(&contents)
         .map_err(|e| format!("{} is not valid viz JSON: {e}", manifest_path.display()))?;
-    let manifest = normalize_viz_manifest(parsed)?;
     validate_manifest(&manifest, pack_dir)
 }
 
 fn validate_manifest(manifest: &VizManifest, pack_dir: &Path) -> Result<(), String> {
     let mut errors = Vec::new();
 
-    for (scene, profile) in &manifest.scenes {
-        validate_scene_profile(scene, profile, "scenes", pack_dir, &mut errors);
-    }
+    validate_children(&manifest.children, pack_dir, &mut errors);
 
     if let Some(preview) = &manifest.preview {
         if let Err(message) = crate::validate_preview_file(pack_dir, preview) {
@@ -301,13 +255,9 @@ mod tests {
               "name": "Bars",
               "author": "Spiral",
               "description": "test",
-              "scenes": {
-                "default": {
-                  "children": [
-                    { "kind": "canvas", "layout": "fill", "entry": "index.js" }
-                  ]
-                }
-              }
+              "children": [
+                { "kind": "canvas", "layout": "fill", "entry": "index.js" }
+              ]
             }"#,
         )
         .unwrap();
@@ -320,13 +270,9 @@ mod tests {
               "name": "Bars",
               "author": "Spiral",
               "description": "test",
-              "scenes": {
-                "default": {
-                  "children": [
-                    { "kind": "canvas", "layout": "fill", "entry": "missing.js" }
-                  ]
-                }
-              }
+              "children": [
+                { "kind": "canvas", "layout": "fill", "entry": "missing.js" }
+              ]
             }"#,
         )
         .unwrap();
@@ -348,18 +294,39 @@ mod tests {
               "name": "Bars",
               "author": "Spiral",
               "description": "test",
-              "scenes": {
-                "default": {
-                  "children": [
-                    { "kind": "canvas", "layout": "fill", "entry": "../secret.js" }
-                  ]
-                }
-              }
+              "children": [
+                { "kind": "canvas", "layout": "fill", "entry": "../secret.js" }
+              ]
             }"#,
         )
         .unwrap();
         let err = validate_visualizer_contribution_at(&path).unwrap_err();
         assert!(err.contains("relative .js filename"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn empty_children_fails() {
+        let dir = std::env::temp_dir().join(format!("spk-viz-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("viz.json");
+        std::fs::write(
+            &path,
+            r#"{
+              "id": "bars",
+              "name": "Bars",
+              "author": "Spiral",
+              "description": "test",
+              "children": []
+            }"#,
+        )
+        .unwrap();
+        let err = validate_visualizer_contribution_at(&path).unwrap_err();
+        assert!(
+            err.contains("children must contain at least one layer"),
+            "{err}"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
